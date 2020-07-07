@@ -244,7 +244,7 @@ namespace DiscordIrcBridge
 
                 if (currentCapabilities.message_tags)
                 {
-                    server.EnqueueMessage($"@{(guildUser.IsBot ? "discord.com/bot;" : "")}discord.com/muted={(newState.IsMuted ? 1 : 0)};discord.com/self-muted={(newState.IsSelfMuted ? 1 : 0)};discord.com/deafened={(newState.IsDeafened ? 1 : 0)};discord.com/self-deafened={(newState.IsSelfDeafened ? 1 : 0)};discord.com/streaming={(newState.IsStreaming ? 1 : 0)} :{guildUser.GetIrcSafeName()}!{guildUser.Id}@discord.com TAGMSG &{newState.VoiceChannel.Id}");
+                    server.EnqueueMessage($"@{(guildUser.IsBot ? "discord.com/bot;" : "")}{(newState.IsMuted ? "discord.com/muted;" : "")}{(newState.IsSelfMuted ? "discord.com/self-muted;" : "")}{(newState.IsDeafened ? "discord.com/deafened;" : "")}{(newState.IsSelfDeafened ? "discord.com/self-deafened;" : "")}{(newState.IsStreaming ? "discord.com/streaming;" : "")} :{guildUser.GetIrcSafeName()}!{guildUser.Id}@discord.com TAGMSG &{newState.VoiceChannel.Id}");
                 }
             }
 
@@ -592,7 +592,7 @@ namespace DiscordIrcBridge
             }
 
             var lines = message.Content.Split('\n');
-            var lineNumber = 0;
+            var lineNumber = 1;
             foreach (var line in lines)
             {
                 if (currentCapabilities.message_tags)
