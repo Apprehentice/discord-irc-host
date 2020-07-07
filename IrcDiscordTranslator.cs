@@ -244,7 +244,7 @@ namespace DiscordIrcBridge
 
                 if (currentCapabilities.message_tags)
                 {
-                    server.EnqueueMessage($"@{(guildUser.IsBot ? "discord.com/bot;" : "")}{(newState.IsMuted ? "discord.com/muted;" : "")}{(newState.IsSelfMuted ? "discord.com/self-muted;" : "")}{(newState.IsDeafened ? "discord.com/deafened;" : "")}{(newState.IsSelfDeafened ? "discord.com/self-deafened;" : "")}{(newState.IsStreaming ? "discord.com/streaming;" : "")} :{guildUser.GetIrcSafeName()}!{guildUser.Id}@discord.com TAGMSG &{newState.VoiceChannel.Id}");
+                    server.EnqueueMessage($"@discord.com/voice-state;{(guildUser.IsBot ? "discord.com/bot;" : "")}{(newState.IsMuted ? "discord.com/muted;" : "")}{(newState.IsSelfMuted ? "discord.com/self-muted;" : "")}{(newState.IsDeafened ? "discord.com/deafened;" : "")}{(newState.IsSelfDeafened ? "discord.com/self-deafened;" : "")}{(newState.IsStreaming ? "discord.com/streaming;" : "")} :{guildUser.GetIrcSafeName()}!{guildUser.Id}@discord.com TAGMSG &{newState.VoiceChannel.Id}");
                 }
             }
 
@@ -1706,6 +1706,10 @@ namespace DiscordIrcBridge
                         emote = guildEmote;
                     }
 
+                    if (target.Author.Id != client.CurrentUser.Id
+                        && !(await guild.GetUserAsync(client.CurrentUser.Id)).GuildPermissions.ManageMessages)
+                        return;
+
                     try
                     {
                         await target.RemoveReactionAsync(emote, targetId);
@@ -1719,6 +1723,9 @@ namespace DiscordIrcBridge
 
             if (message.Tags.ContainsKey("+discord.com/delete"))
             {
+                if (!(await guild.GetUserAsync(client.CurrentUser.Id)).GuildPermissions.ManageMessages)
+                    return;
+
                 if (!ulong.TryParse(message.Tags["+discord.com/delete"], out ulong msgId))
                     return;
 
