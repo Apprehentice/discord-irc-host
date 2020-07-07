@@ -1,4 +1,5 @@
 ﻿using Discord.WebSocket;
+using Newtonsoft.Json;
 using NLog;
 using System;
 using System.IO;
@@ -17,13 +18,31 @@ namespace DiscordIrcBridge
 
         static async Task MainAsync()
         {
+            var logger = LogManager.GetLogger("IrcHost");
             if (!File.Exists("./token.txt"))
             {
-                LogManager.GetLogger("IrcBridge").Fatal("token.txt not found!");
-                LogManager.GetLogger("IrcBridge").Fatal("Please create a file named token.txt and populate it with your bot token.");
+                logger.Fatal("token.txt not found!");
+                logger.Fatal("Please create a file named token.txt and populate it with your bot token.");
                 return;
             }
             var token = File.ReadAllText("token.txt");
+
+            Config config;
+            if (File.Exists("./config.json"))
+            {
+                config = JsonConvert.DeserializeObject<Config>(File.ReadAllText("./config.json"));
+            }
+            else
+            {
+                config = new Config();
+                File.WriteAllText("./config.json", JsonConvert.SerializeObject(config));
+            }
+
+            if (string.IsNullOrWhiteSpace(config.Hostname))
+            {
+                logger.Fatal("Invalid hostname");
+                return;
+            }
 
             var dClient = new DiscordSocketClient(new DiscordSocketConfig
             {
@@ -42,11 +61,19 @@ namespace DiscordIrcBridge
 
             readyEvent.WaitOne();
 
-            var server = new IrcServer(IPAddress.Any, 6667);
-            var translator = new IrcDiscordTranslator(dClient, server);
+            var server = new IrcServer(IPAddress.Any, config.Port, config.Hostname);
+            var translator = new IrcDiscordTranslator(dClient, server, config);
 
             server.RegisterCommands(translator);
-            server.Start();
+
+            try
+            {
+                server.Start();
+            }
+            catch (Exception e)
+            {
+                logger.Fatal($"Failed to start IRC server: {e.Message}");
+            }
         }
     }
 }

@@ -18,7 +18,7 @@ using System.Threading.Tasks;
 
 namespace DiscordIrcBridge
 {
-    public class IrcDiscordTranslator
+    public partial class IrcDiscordTranslator
     {
         DiscordSocketClient client;
         DiscordRestClient restClient;
@@ -52,15 +52,17 @@ namespace DiscordIrcBridge
 
         private Config config;
 
-        public IrcDiscordTranslator(DiscordSocketClient client, IrcServer server)
+        public IrcDiscordTranslator(DiscordSocketClient client, IrcServer server, Config config)
         {
             this.client = client;
             this.server = server;
+            this.config = config;
 
+            var token = File.ReadAllText("./token.txt");
             restClient = new DiscordRestClient();
-            restClient.LoginAsync(TokenType.Bot, File.ReadAllText("./token.txt"));
+            restClient.LoginAsync(TokenType.Bot, token);
 
-            dmMutex = new Mutex(true, "appr_discord-irc-bridge", out handleDms);
+            dmMutex = new Mutex(true, token, out handleDms);
 
             client.MessageReceived += Client_MessageReceived;
             client.ChannelUpdated += Client_ChannelUpdated;
@@ -78,16 +80,6 @@ namespace DiscordIrcBridge
 
             client.MessageDeleted += Client_MessageDeleted;
             client.MessageUpdated += Client_MessageUpdated;
-
-            if (File.Exists("./config.json"))
-            {
-                config = JsonConvert.DeserializeObject<Config>(File.ReadAllText("./config.json"));
-            }
-            else
-            {
-                config = new Config();
-                File.WriteAllText("./config.json", JsonConvert.SerializeObject(config));
-            }
         }
 
         private async Task Client_MessageUpdated(Cacheable<IMessage, ulong> oldMsg, SocketMessage newMsg, ISocketMessageChannel channel)
@@ -2075,13 +2067,6 @@ namespace DiscordIrcBridge
                 });
             }
             return input;
-        }
-
-        private class Config
-        {
-            public ulong? BannedRole;
-            public bool AtMentions = true;
-            public bool ConvertMentionsFromDiscord = true;
         }
 
         private class Capabilities
