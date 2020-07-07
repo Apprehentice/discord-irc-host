@@ -1736,6 +1736,10 @@ namespace DiscordIrcBridge
                     if (chan == null)
                         return;
 
+                    var target = await chan.GetMessageAsync(msgId);
+                    if (target == null)
+                        return;
+
                     await chan.DeleteMessageAsync(msgId);
                 }
             }
