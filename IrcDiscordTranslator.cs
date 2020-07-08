@@ -80,6 +80,18 @@ namespace DiscordIrcBridge
 
             client.MessageDeleted += Client_MessageDeleted;
             client.MessageUpdated += Client_MessageUpdated;
+
+            client.UserIsTyping += Client_UserIsTyping;
+        }
+
+        private async Task Client_UserIsTyping(SocketUser user, ISocketMessageChannel channel)
+        {
+            var guildChannel = channel as IGuildChannel;
+            if (guildChannel == null)
+                return;
+
+            var nick = getNickById(user.Id);
+            server.EnqueueMessage($"@+typing=active :{nick}!{user.Id}@discord.com TAGMSG #{guildChannel.GetIrcSafeName()}");
         }
 
         private async Task Client_MessageUpdated(Cacheable<IMessage, ulong> oldMsg, SocketMessage newMsg, ISocketMessageChannel channel)
