@@ -327,6 +327,18 @@ namespace DiscordIrcBridge
                         server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} +v {getNickById(newGuildUser.Id)}");
                     }
 
+                    if (config.BannedRole.HasValue)
+                    {
+                        if (gainedRoles.Any(r => r.Id == config.BannedRole.Value))
+                        {
+                            server.EnqueueMessage($":{server.Hostname} MODE {chan.GetIrcSafeName()} +b *!{newGuildUser.Id}@*");
+                        }
+                        else if (lostRoles.Any(r => r.Id == config.BannedRole.Value))
+                        {
+                            server.EnqueueMessage($":{server.Hostname} MODE {chan.GetIrcSafeName()} -b *!{newGuildUser.Id}@*");
+                        }
+                    }
+
                     if (!newGuildUser.GetPermissions(chan).ViewChannel)
                         server.EnqueueMessage($":{getNickById(newGuildUser.Id)}!{newGuildUser.Id}@discord.com PART #{chan.GetIrcSafeName()} :Permissions changed");
                 }
@@ -955,7 +967,7 @@ namespace DiscordIrcBridge
                                         }
                                         else
                                         {
-                                            var matches = Regex.Match(message.Params[paramIndex++], @".*!(?<id>\d+)@.*");
+                                            var matches = Regex.Match(message.Params[paramIndex++], @".*!(?<id>\d+)?@.*");
                                             if (matches.Success)
                                             {
                                                 ulong.TryParse(matches.Groups["id"].Value, out ulong userId);
@@ -971,8 +983,8 @@ namespace DiscordIrcBridge
                                                             try
                                                             {
                                                                 await user.AddRoleAsync(role);
-                                                                appliedModes += message.Params[1][i];
-                                                                appliedParams.Add($"*!{userId}@*");
+                                                                //appliedModes += message.Params[1][i];
+                                                                //appliedParams.Add($"*!{userId}@*");
                                                             }
                                                             catch (HttpException) { }
                                                         }
@@ -1100,8 +1112,8 @@ namespace DiscordIrcBridge
                                                             try
                                                             {
                                                                 await user.RemoveRoleAsync(role);
-                                                                appliedModes += message.Params[1][i];
-                                                                appliedParams.Add($"*!{userId}@*");
+                                                                //appliedModes += message.Params[1][i];
+                                                                //appliedParams.Add($"*!{userId}@*");
                                                             }
                                                             catch (HttpException) { }
                                                         }
