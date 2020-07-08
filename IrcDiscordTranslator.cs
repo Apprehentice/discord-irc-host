@@ -2048,7 +2048,7 @@ namespace DiscordIrcBridge
                             discriminator = "|" + u.Discriminator;
                         }
 
-                        names.Add(prefix + u.GetIrcSafeName() + discriminator);
+                        names.Add($"{prefix + u.GetIrcSafeName() + discriminator}!{u.Id}@discord.com");
                         nickLookupDict[u.GetIrcSafeName() + discriminator] = u.Id;
 
                         if (names.Count == 13)
