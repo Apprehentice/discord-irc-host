@@ -287,55 +287,58 @@ namespace DiscordIrcBridge
 
                 foreach (var c in joinedChannels)
                 {
-                    var chan = await guild.GetChannelAsync(c.Value.Id) as ITextChannel;
+                    var chan = await guild.GetChannelAsync(c.Value.Id) as IGuildChannel;
                     if (chan == null)
                         continue;
 
+                    var isVoice = (chan as IVoiceChannel) != null;
+                    var prefix = isVoice ? "&" : "#";
+
                     if (oldGuildUser.GuildPermissions.Administrator && !newGuildUser.GuildPermissions.Administrator)
                     {
-                        server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} -a {getNickById(newGuildUser.Id)}");
+                        server.EnqueueMessage($":{server.Hostname} MODE {prefix}{chan.GetIrcSafeName()} -a {getNickById(newGuildUser.Id)}");
                     }
                     else if (!oldGuildUser.GuildPermissions.Administrator && newGuildUser.GuildPermissions.Administrator)
                     {
-                        server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} +a {getNickById(newGuildUser.Id)}");
+                        server.EnqueueMessage($":{server.Hostname} MODE {prefix}{chan.GetIrcSafeName()} +a {getNickById(newGuildUser.Id)}");
                     }
 
                     if (oldGuildUser.GuildPermissions.ManageChannels && !newGuildUser.GuildPermissions.ManageChannels)
                     {
-                        server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} -o {getNickById(newGuildUser.Id)}");
+                        server.EnqueueMessage($":{server.Hostname} MODE {prefix}{chan.GetIrcSafeName()} -o {getNickById(newGuildUser.Id)}");
                     }
                     else if (!oldGuildUser.GuildPermissions.ManageChannels && newGuildUser.GuildPermissions.ManageChannels)
                     {
-                        server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} +o {getNickById(newGuildUser.Id)}");
+                        server.EnqueueMessage($":{server.Hostname} MODE {prefix}{chan.GetIrcSafeName()} +o {getNickById(newGuildUser.Id)}");
                     }
 
                     if (oldGuildUser.GuildPermissions.KickMembers && !newGuildUser.GuildPermissions.KickMembers)
                     {
-                        server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} -h {getNickById(newGuildUser.Id)}");
+                        server.EnqueueMessage($":{server.Hostname} MODE {prefix}{chan.GetIrcSafeName()} -h {getNickById(newGuildUser.Id)}");
                     }
                     else if (!oldGuildUser.GuildPermissions.KickMembers && newGuildUser.GuildPermissions.KickMembers)
                     {
-                        server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} +h {getNickById(newGuildUser.Id)}");
+                        server.EnqueueMessage($":{server.Hostname} MODE {prefix}{chan.GetIrcSafeName()} +h {getNickById(newGuildUser.Id)}");
                     }
 
-                    if (oldGuildUser.GetPermissions(chan).SendMessages && !newGuildUser.GetPermissions(chan).SendMessages)
+                    if (!isVoice && oldGuildUser.GetPermissions(chan).SendMessages && !newGuildUser.GetPermissions(chan).SendMessages)
                     {
-                        server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} -v {getNickById(newGuildUser.Id)}");
+                        server.EnqueueMessage($":{server.Hostname} MODE {prefix}{chan.GetIrcSafeName()} -v {getNickById(newGuildUser.Id)}");
                     }
-                    else if (!oldGuildUser.GetPermissions(chan).SendMessages && newGuildUser.GetPermissions(chan).SendMessages)
+                    else if (!isVoice && !oldGuildUser.GetPermissions(chan).SendMessages && newGuildUser.GetPermissions(chan).SendMessages)
                     {
-                        server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} +v {getNickById(newGuildUser.Id)}");
+                        server.EnqueueMessage($":{server.Hostname} MODE {prefix}{chan.GetIrcSafeName()} +v {getNickById(newGuildUser.Id)}");
                     }
 
                     if (config.BannedRole.HasValue)
                     {
                         if (gainedRoles.Any(r => r.Id == config.BannedRole.Value))
                         {
-                            server.EnqueueMessage($":{server.Hostname} MODE {chan.GetIrcSafeName()} +b *!{newGuildUser.Id}@*");
+                            server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} +b *!{newGuildUser.Id}@*");
                         }
                         else if (lostRoles.Any(r => r.Id == config.BannedRole.Value))
                         {
-                            server.EnqueueMessage($":{server.Hostname} MODE {chan.GetIrcSafeName()} -b *!{newGuildUser.Id}@*");
+                            server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} -b *!{newGuildUser.Id}@*");
                         }
                     }
 
@@ -591,10 +594,18 @@ namespace DiscordIrcBridge
                 target = "#" + message.Channel.Name;
             }
 
-            var userNick = getNickById(message.Author.Id);
-            if (string.IsNullOrWhiteSpace(userNick))
-                return;
-
+            string userNick;
+            string userUser;
+            if (!message.Author.IsWebhook)
+            {
+                userNick = getNickById(message.Author.Id);
+                userUser = message.Author.Id.ToString();
+            }
+            else
+            {
+                userNick = message.Author.GetIrcSafeName();
+                userUser = "webhook";
+            }
 
             var tagsList = new Dictionary<string, string>();
             if (currentCapabilities.message_tags)
@@ -602,6 +613,8 @@ namespace DiscordIrcBridge
                 if (message.Author.IsBot)
                     tagsList["discord.com/bot"] = "";
             }
+
+            var isAction = !message.Content.Contains('\n') && Regex.IsMatch(message.Content, @"_.*_");
 
             var lines = message.Content.Split('\n');
             var lineNumber = 1;
@@ -621,7 +634,13 @@ namespace DiscordIrcBridge
                     tags += tagEscape($"{tag.Key}={tag.Value}") + ";";
                 }
 
-                server.EnqueueMessage($"{tags} :{userNick}!{message.Author.Id}@discord.com PRIVMSG {target} :{parseDiscordMentions(line.Replace("\r", ""))}");
+                var msgContent = parseDiscordMentions(line.Replace("\r", ""));
+                if (isAction)
+                {
+                    var actionMatch = Regex.Match(msgContent, @"_(?<content>.*)_");
+                    msgContent = $"ACTION {actionMatch.Groups["content"].Value}";
+                }
+                server.EnqueueMessage($"{tags} :{userNick}!{userUser}@discord.com PRIVMSG {target} :{msgContent}");
             }
         }
 
@@ -877,7 +896,14 @@ namespace DiscordIrcBridge
                     return;
                 }
 
-                var msgStr = await parseIrcMentions(message.Params[1]);
+                var msgStr = message.Params[1];
+                var actionMatch = Regex.Match(message.Params[1], @"^ACTION (?<content>.*)$");
+                if (actionMatch.Success)
+                {
+                    msgStr = "_" + actionMatch.Groups["content"].Value + "_";
+                }
+
+                msgStr = await parseIrcMentions(msgStr);
                 await chan.SendMessageAsync(msgStr.Substring(0, Math.Min(msgStr.Length, 2000)));
             }
             else
@@ -1485,8 +1511,20 @@ namespace DiscordIrcBridge
         [IrcCommand("KICK", preAuth: false, postAuth: false)]
         public async void KickHandler(IrcMessage message)
         {
-            var target = await findUserByIrcName(message.Params[0]);
+            if (message.Params.Count < 2)
+                return;
+
+            var target = await findUserByIrcName(message.Params[1]);
             var self = await guild.GetUserAsync(client.CurrentUser.Id);
+
+            var chanId = joinedChannels.Where(c => c.Value.IrcName == message.Params[0].Substring(1)).First().Key;
+            var voiceChan = await guild.GetVoiceChannelAsync(chanId);
+            if (voiceChan != null && self.GuildPermissions.MoveMembers)
+            {
+                await target.ModifyAsync(u => u.Channel = null);
+                return;
+            }
+
             var reason = message.Params.Count > 2 ? message.Params[2] : "";
             if (!self.GuildPermissions.KickMembers)
             {
@@ -1494,7 +1532,19 @@ namespace DiscordIrcBridge
                 return;
             }
 
-            await target.KickAsync(reason);
+            if (!config.FakeKick)
+            {
+                try
+                {
+                    await target.KickAsync(reason);
+                }
+                catch (HttpException) { }
+            }
+            else
+            {
+                server.EnqueueMessage($":{nick}!{self.Id}@discord.com KICK {message.Params[1]} {message.Params[2]} :{reason}");
+                server.EnqueueMessage($":{message.Params[2]} JOIN {message.Params[1]}");
+            }
         }
 
         [IrcCommand("ROLE", preAuth: false, postAuth: false)]
@@ -2056,7 +2106,7 @@ namespace DiscordIrcBridge
         {
             if (config.AtMentions)
             {
-                return Regex.Replace(input, @"(?<![\w])@(?!@)(?<nick>[^\s:$%,.;!?]+)", m =>
+                input = Regex.Replace(input, @"(?<![\w])@(?!@)(?<nick>[^\s:$%,.;!?]+)", m =>
                 {
                     var nick = m.Groups["nick"].Value;
                     if (!nickLookupDict.ContainsKey(nick))
@@ -2072,19 +2122,42 @@ namespace DiscordIrcBridge
                     var nick = getNickById(ul.Id);
                     input = Regex.Replace(input, @$"\b{Regex.Escape(nick)}\b", $@"<@{ul.Id}>");
                 }
-                return input;
             }
+
+            foreach (var ch in await guild.GetChannelsAsync())
+            {
+                var isVoice = (ch as IVoiceChannel) != null;
+                var chanName = (isVoice ? "&" : "#") + ch.GetIrcSafeName();
+                input = Regex.Replace(input, @$"\b{Regex.Escape(chanName)}\b", $@"<@{ch.Id}>");
+            }
+
+            return input;
         }
 
         private string parseDiscordMentions(string input)
         {
             if (config.ConvertMentionsFromDiscord)
             {
-                return Regex.Replace(input, @"<@!?(?<id>\d+)>", m =>
+                input = Regex.Replace(input, @"<@!?(?<id>\d+)>", m =>
                 {
                     if (ulong.TryParse(m.Groups["id"].Value, out ulong id))
                     {
                         return getNickById(id);
+                    }
+                    return m.Value;
+                });
+
+                input = Regex.Replace(input, @"<#!?(?<id>\d+)>", m =>
+                {
+                    if (ulong.TryParse(m.Groups["id"].Value, out ulong id))
+                    {
+                        var chan = guild.GetChannelAsync(id).GetAwaiter().GetResult();
+                        if (chan == null)
+                            return m.Value;
+
+                        var isVoice = (chan as IVoiceChannel) != null;
+
+                        return (isVoice ? "&" : "#") + chan.GetIrcSafeName();
                     }
                     return m.Value;
                 });
