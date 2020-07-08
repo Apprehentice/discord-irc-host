@@ -18,6 +18,8 @@ namespace DiscordIrcBridge
 {
     public class IrcServer : IDisposable
     {
+        private const int MAX_OUT_MSGS = 25;
+
         private Dictionary<string, IrcCommandHandler> preAuthCommands = new Dictionary<string, IrcCommandHandler>();
         private Dictionary<string, IrcCommandHandler> preCapCommands = new Dictionary<string, IrcCommandHandler>();
         private Dictionary<string, IrcCommandHandler> postCapCommands = new Dictionary<string, IrcCommandHandler>();
@@ -107,6 +109,7 @@ namespace DiscordIrcBridge
             {
                 AutoReset = false
             };
+
             timeoutTimer.Elapsed += (s, e) =>
             {
                 EnqueueMessage($"PING :{Hostname}");
@@ -132,7 +135,8 @@ namespace DiscordIrcBridge
                 string line;
                 while (client.Connected && running)
                 {
-                    while (messageQueue.Count > 0)
+                    var outMsgCount = 0;
+                    while (messageQueue.Count > 0 && outMsgCount <= MAX_OUT_MSGS)
                     {
                         try
                         {
@@ -147,6 +151,7 @@ namespace DiscordIrcBridge
                             logger.Error($"Exception ({e.GetType().FullName}) thrown while reading from client: {e.Message}");
                             Stop();
                         }
+                        outMsgCount++;
                     }
 
                     while (stream.DataAvailable)
