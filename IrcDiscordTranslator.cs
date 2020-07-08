@@ -1597,12 +1597,21 @@ namespace DiscordIrcBridge
                             break;
                         }
 
+                        var roleList = new List<string>();
                         foreach (var r in guildUser.RoleIds)
                         {
-                            var roleName = guild.GetRole(r);
-                            server.EnqueueMessage($":{server.Hostname} NOTE ROLE ROLE_LS_ENTRY {userId} LS :{roleName}={r}");
+                            roleList.Add(r.ToString());
+                            if (roleList.Count == 15)
+                            {
+                                server.EnqueueMessage($":{server.Hostname} NOTE ROLE ROLE_LS_USERENTRY {userId} LS :{roleList.Aggregate((c, n) => $"{c} {n}")}");
+                                roleList.Clear();
+                            }
                         }
-                        server.EnqueueMessage($":{server.Hostname} NOTE ROLE ROLE_LS_END {userId} LS :End of ROLE LS list");
+                        if (roleList.Count > 0)
+                        {
+                            server.EnqueueMessage($":{server.Hostname} NOTE ROLE ROLE_LS_USERENTRY {userId} LS :{roleList.Aggregate((c, n) => $"{c} {n}")}");
+                        }
+                        server.EnqueueMessage($":{server.Hostname} NOTE ROLE ROLE_LS_USEREND {userId} LS :End of ROLE LS list");
                     }
                     else
                     {
@@ -2138,9 +2147,12 @@ namespace DiscordIrcBridge
 
             foreach (var ch in await guild.GetChannelsAsync())
             {
-                var isVoice = (ch as IVoiceChannel) != null;
-                var chanName = (isVoice ? "&" : "#") + ch.GetIrcSafeName();
-                input = Regex.Replace(input, @$"\b{Regex.Escape(chanName)}\b", $@"<@{ch.Id}>");
+                if ((ch as IVoiceChannel) != null
+                    || (ch as ICategoryChannel) != null)
+                    continue;
+
+                var chanName = ch.GetIrcSafeName();
+                input = Regex.Replace(input, $@"(?<![\w])#(?!#){Regex.Escape(chanName)}\b", @$"<#{ch.Id}>");
             }
 
             return input;
