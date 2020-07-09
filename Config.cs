@@ -1,4 +1,6 @@
-﻿namespace DiscordIrcBridge
+﻿using System.Collections.Generic;
+
+namespace DiscordIrcBridge
 {
     public class Config
     {
@@ -8,5 +10,7 @@
         public bool FakeKick = false;
         public int Port = 6667;
         public string Hostname = "irc.discord.com";
+        public int OutgoingMessageLimit = 25;
+        public Dictionary<ulong, string> RoleTags = new Dictionary<ulong, string>();
     }
 }

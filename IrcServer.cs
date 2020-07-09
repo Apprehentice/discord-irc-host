@@ -18,8 +18,6 @@ namespace DiscordIrcBridge
 {
     public class IrcServer : IDisposable
     {
-        private const int MAX_OUT_MSGS = 25;
-
         private Dictionary<string, IrcCommandHandler> preAuthCommands = new Dictionary<string, IrcCommandHandler>();
         private Dictionary<string, IrcCommandHandler> preCapCommands = new Dictionary<string, IrcCommandHandler>();
         private Dictionary<string, IrcCommandHandler> postCapCommands = new Dictionary<string, IrcCommandHandler>();
@@ -29,22 +27,27 @@ namespace DiscordIrcBridge
 
         private bool running = false;
         private ConcurrentQueue<string> messageQueue = new ConcurrentQueue<string>();
+        private ConcurrentQueue<string> priorityMessageQueue = new ConcurrentQueue<string>();
 
         private Timer timeoutTimer;
         private bool missedPing = false;
 
         private readonly TcpListener listener;
+
+        private Config config;
+
         public delegate void IrcCommandHandler(IrcMessage message);
 
-        public IrcServer(IPAddress address, int port, string hostname="irc.discord.com")
-        {
-            if (string.IsNullOrWhiteSpace(hostname))
-            {
-                hostname = "irc.discord.com";
-            }
 
-            Hostname = hostname;
-            listener = new TcpListener(address, port);
+        public IrcServer(IPAddress address, Config config)
+        {
+            if (string.IsNullOrWhiteSpace(config.Hostname))
+            {
+                config.Hostname = "irc.discord.com";
+            }
+            this.config = config;
+            Hostname = config.Hostname;
+            listener = new TcpListener(address, config.Port);
         }
 
         public void RegisterCommands(object commandHandler)
@@ -135,8 +138,25 @@ namespace DiscordIrcBridge
                 string line;
                 while (client.Connected && running)
                 {
+                    while (priorityMessageQueue.Count > 0)
+                    {
+                        try
+                        {
+                            if (priorityMessageQueue.TryDequeue(out string l))
+                            {
+                                logger.Trace($"tx: {l}");
+                                stream.Write(Encoding.UTF8.GetBytes(l + "\r\n"));
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            logger.Error($"Exception ({e.GetType().FullName}) thrown while reading from client: {e.Message}");
+                            Stop();
+                        }
+                    }
+
                     var outMsgCount = 0;
-                    while (messageQueue.Count > 0 && outMsgCount <= MAX_OUT_MSGS)
+                    while (messageQueue.Count > 0 && outMsgCount <= config.OutgoingMessageLimit)
                     {
                         try
                         {
@@ -218,6 +238,12 @@ namespace DiscordIrcBridge
         {
             logger.Trace($"q: {message}");
             messageQueue.Enqueue(message);
+        }
+
+        public void PriorityEnqueueMessage(string message)
+        {
+            logger.Trace($"q: {message}");
+            priorityMessageQueue.Enqueue(message);
         }
 
         public void Stop()

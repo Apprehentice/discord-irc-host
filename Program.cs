@@ -61,7 +61,7 @@ namespace DiscordIrcBridge
 
             readyEvent.WaitOne();
 
-            var server = new IrcServer(IPAddress.Any, config.Port, config.Hostname);
+            var server = new IrcServer(IPAddress.Any, config);
             var translator = new IrcDiscordTranslator(dClient, server, config);
 
             server.RegisterCommands(translator);

@@ -596,6 +596,8 @@ namespace DiscordIrcBridge
             if (!handleDms && isPrivateMessage)
                 return;
 
+            var guildUser = message.Author as IGuildUser;
+
             string target;
             if (isPrivateMessage)
             {
@@ -624,6 +626,21 @@ namespace DiscordIrcBridge
             {
                 if (message.Author.IsBot)
                     tagsList["discord.com/bot"] = "";
+
+
+                if (guildUser != null)
+                {
+                    foreach (var tag in config.RoleTags)
+                    {
+                        if (!guildUser.RoleIds.Contains(tag.Key))
+                            continue;
+
+                        if (string.IsNullOrWhiteSpace(tag.Value))
+                            return;
+
+                        tagsList[tagEscape(tag.Value)] = "";
+                    }
+                }
             }
 
             var isAction = !message.Content.Contains('\n') && Regex.IsMatch(message.Content, @"_.*_");
@@ -643,7 +660,8 @@ namespace DiscordIrcBridge
                 string tags = "@";
                 foreach (var tag in tagsList)
                 {
-                    tags += tagEscape($"{tag.Key}={tag.Value}") + ";";
+                    var val = string.IsNullOrWhiteSpace(tag.Value) ? "" : $"={tag.Value}";
+                    tags += tagEscape($"{tag.Key}{val}") + ";";
                 }
 
                 var msgContent = parseDiscordMentions(line.Replace("\r", ""));
@@ -773,7 +791,7 @@ namespace DiscordIrcBridge
             if (message.Params.Count == 0)
                 return;
 
-            server.EnqueueMessage($":{server.Hostname} PONG {server.Hostname} :{message.Params[0]}");
+            server.PriorityEnqueueMessage($":{server.Hostname} PONG {server.Hostname} :{message.Params[0]}");
             server.Ping();
         }
 
@@ -2051,7 +2069,7 @@ namespace DiscordIrcBridge
                         names.Add($"{prefix + u.GetIrcSafeName() + discriminator}!{u.Id}@discord.com");
                         nickLookupDict[u.GetIrcSafeName() + discriminator] = u.Id;
 
-                        if (names.Count == 13)
+                        if (names.Count == 20)
                         {
                             server.EnqueueMessage($":{server.Hostname} 353 {nick} {chanPrefix}{chan.GetIrcSafeName()} :{names.Aggregate((s, n) => s + " " + n)}");
                             names.Clear();
