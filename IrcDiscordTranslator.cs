@@ -48,9 +48,13 @@ namespace DiscordIrcBridge
         private Dictionary<string, ulong> nickLookupDict = new Dictionary<string, ulong>();
         private Capabilities currentCapabilities = new Capabilities();
 
+        private List<ulong> bans = new List<ulong>();
+
         private string userModes = "";
 
         private Config config;
+
+        private Logger logger = LogManager.GetLogger("Bridge");
 
         public IrcDiscordTranslator(DiscordSocketClient client, IrcServer server, Config config)
         {
@@ -201,6 +205,11 @@ namespace DiscordIrcBridge
 
         private async Task Client_UserJoined(SocketGuildUser user)
         {
+            if (bans.Contains(user.Id) && config.BannedRole.HasValue)
+            {
+                await user.AddRoleAsync(guild.GetRole(config.BannedRole.Value));
+            }
+
             foreach (var c in joinedChannels)
             {
                 var chan = await guild.GetChannelAsync(c.Key) as ITextChannel;
@@ -295,6 +304,19 @@ namespace DiscordIrcBridge
                 foreach (var lost in lostRoles)
                 {
                     server.EnqueueMessage($":{server.Hostname} NOTE ROLE ROLE_REMOVE {newGuildUser.Id} * :{lost.Id}");
+                }
+
+                if (config.BannedRole.HasValue)
+                {
+                    if (gainedRoles.Any(r => r.Id == config.BannedRole.Value))
+                    {
+                        if (!bans.Contains(newGuildUser.Id))
+                            bans.Add(newGuildUser.Id);
+                    }
+                    else if (lostRoles.Any(r => r.Id == config.BannedRole.Value))
+                    {
+                        bans.Remove(newGuildUser.Id);
+                    }
                 }
 
                 foreach (var c in joinedChannels)
@@ -737,6 +759,43 @@ namespace DiscordIrcBridge
             guild = guilds.Where(g => g.Id == guildId).FirstOrDefault();
             if (guild == null)
                 server.Stop();
+
+            if (config.BannedRole.HasValue && config.PreserveBans)
+            {
+                if (File.Exists("./bans.json"))
+                {
+                    try
+                    {
+                        bans = JsonConvert.DeserializeObject<List<ulong>>(File.ReadAllText("./bans.json"));
+                    }
+                    catch (JsonException e)
+                    {
+                        logger.Warn($"Couldn't load bans: {e.Message}");
+                    }
+                    catch (IOException e)
+                    {
+                        logger.Warn($"Couldn't load bans: {e.Message}");
+                    }
+                }
+
+                var banRole = guild.Roles.Where(r => r.Id == config.BannedRole).FirstOrDefault();
+                if (banRole != null)
+                {
+                    foreach (var u in await guild.GetUsersAsync())
+                    {
+                        if (!u.RoleIds.Contains(banRole.Id))
+                        {
+                            if (bans.Contains(u.Id))
+                                bans.Remove(u.Id);
+
+                            continue;
+                        }
+
+                        if (!bans.Contains(banRole.Id))
+                            bans.Add(u.Id);
+                    }
+                }
+            }
 
             handshakeStatus |= HandshakeFlags.Pass;
             checkHandshakeStatus();

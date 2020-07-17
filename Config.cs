@@ -12,5 +12,6 @@ namespace DiscordIrcBridge
         public string Hostname = "irc.discord.com";
         public int OutgoingMessageLimit = 25;
         public Dictionary<ulong, string> RoleTags = new Dictionary<ulong, string>();
+        public bool PreserveBans = true;
     }
 }
