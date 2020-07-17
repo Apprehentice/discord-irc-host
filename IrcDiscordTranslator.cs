@@ -90,7 +90,7 @@ namespace DiscordIrcBridge
 
         private async Task Client_UserIsTyping(SocketUser user, ISocketMessageChannel channel)
         {
-            if (server.CurrentStage == AuthStages.CapsNegotiated)
+            if (server.CurrentStage != AuthStages.CapsNegotiated)
                 return;
 
             var guildChannel = channel as IGuildChannel;
@@ -103,7 +103,7 @@ namespace DiscordIrcBridge
 
         private async Task Client_MessageUpdated(Cacheable<IMessage, ulong> oldMsg, SocketMessage newMsg, ISocketMessageChannel channel)
         {
-            if (server.CurrentStage == AuthStages.CapsNegotiated)
+            if (server.CurrentStage != AuthStages.CapsNegotiated)
                 return;
 
             if (!oldMsg.HasValue || oldMsg.Value.Content == newMsg.Content)
@@ -143,7 +143,7 @@ namespace DiscordIrcBridge
 
         private async Task Client_MessageDeleted(Cacheable<IMessage, ulong> message, ISocketMessageChannel channel)
         {
-            if (server.CurrentStage == AuthStages.CapsNegotiated)
+            if (server.CurrentStage != AuthStages.CapsNegotiated)
                 return;
 
             if (!joinedChannels.ContainsKey(channel.Id))
@@ -155,7 +155,7 @@ namespace DiscordIrcBridge
 
         private async Task Client_ReactionRemoved(Cacheable<IUserMessage, ulong> message, ISocketMessageChannel channel, SocketReaction reaction)
         {
-            if (server.CurrentStage == AuthStages.CapsNegotiated)
+            if (server.CurrentStage != AuthStages.CapsNegotiated)
                 return;
 
             if (!joinedChannels.ContainsKey(channel.Id)
@@ -170,7 +170,7 @@ namespace DiscordIrcBridge
 
         private async Task Client_ReactionAdded(Cacheable<IUserMessage, ulong> message, ISocketMessageChannel channel, SocketReaction reaction)
         {
-            if (server.CurrentStage == AuthStages.CapsNegotiated)
+            if (server.CurrentStage != AuthStages.CapsNegotiated)
                 return;
 
             if (!joinedChannels.ContainsKey(channel.Id)
@@ -185,7 +185,7 @@ namespace DiscordIrcBridge
 
         private async Task Client_UserUnbanned(SocketUser user, SocketGuild guild)
         {
-            if (server.CurrentStage == AuthStages.CapsNegotiated)
+            if (server.CurrentStage != AuthStages.CapsNegotiated)
                 return;
 
             if (config.BannedRole.HasValue)
@@ -203,7 +203,7 @@ namespace DiscordIrcBridge
 
         private async Task Client_UserBanned(SocketUser user, SocketGuild guild)
         {
-            if (server.CurrentStage == AuthStages.CapsNegotiated)
+            if (server.CurrentStage != AuthStages.CapsNegotiated)
                 return;
 
             if (config.BannedRole.HasValue)
@@ -221,7 +221,7 @@ namespace DiscordIrcBridge
 
         private async Task Client_UserLeft(SocketGuildUser user)
         {
-            if (server.CurrentStage == AuthStages.CapsNegotiated)
+            if (server.CurrentStage != AuthStages.CapsNegotiated)
                 return;
 
             server.EnqueueMessage($"{(user.IsBot ? "@discord.com/bot " : "")}:{getNickById(user.Id)}!{user.Id}@discord.com QUIT");
@@ -229,7 +229,7 @@ namespace DiscordIrcBridge
 
         private async Task Client_UserJoined(SocketGuildUser user)
         {
-            if (server.CurrentStage == AuthStages.CapsNegotiated)
+            if (server.CurrentStage != AuthStages.CapsNegotiated)
                 return;
 
             if (bans.Contains(user.Id) && config.BannedRole.HasValue)
@@ -272,7 +272,7 @@ namespace DiscordIrcBridge
 
         private async Task Client_UserVoiceStateUpdated(SocketUser user, SocketVoiceState oldState, SocketVoiceState newState)
         {
-            if (server.CurrentStage == AuthStages.CapsNegotiated)
+            if (server.CurrentStage != AuthStages.CapsNegotiated)
                 return;
 
             var guildUser = user as IGuildUser;
@@ -321,7 +321,7 @@ namespace DiscordIrcBridge
 
         private async Task Client_GuildMemberUpdated(SocketGuildUser oldGuildUser, SocketGuildUser newGuildUser)
         {
-            if (server.CurrentStage == AuthStages.CapsNegotiated)
+            if (server.CurrentStage != AuthStages.CapsNegotiated)
                 return;
 
             if (oldGuildUser.Roles.Count != newGuildUser.Roles.Count)
@@ -437,7 +437,7 @@ namespace DiscordIrcBridge
 
         private async Task Client_RoleUpdated(SocketRole oldRole, SocketRole newRole)
         {
-            if (server.CurrentStage == AuthStages.CapsNegotiated)
+            if (server.CurrentStage != AuthStages.CapsNegotiated)
                 return;
 
             foreach (var c in joinedChannels)
@@ -500,7 +500,7 @@ namespace DiscordIrcBridge
 
         private async Task Client_ChannelUpdated(SocketChannel oldChannel, SocketChannel newChannel)
         {
-            if (server.CurrentStage == AuthStages.CapsNegotiated)
+            if (server.CurrentStage != AuthStages.CapsNegotiated)
                 return;
 
             var oldGuildChannel = oldChannel as IGuildChannel;
@@ -643,7 +643,7 @@ namespace DiscordIrcBridge
 
         private async Task Client_MessageReceived(SocketMessage socketMessage) // async to avoid `return Task.CompletedTask`
         {
-            if (server.CurrentStage == AuthStages.CapsNegotiated)
+            if (server.CurrentStage != AuthStages.CapsNegotiated)
                 return;
 
             var message = socketMessage as IUserMessage;
@@ -910,6 +910,9 @@ namespace DiscordIrcBridge
         {
             foreach (var param in message.Params[0].Split(','))
             {
+                if (string.IsNullOrWhiteSpace(param))
+                    continue;
+
                 var isVoice = param.StartsWith('&');
                 var chanName = param.Substring(1);
 
@@ -931,7 +934,7 @@ namespace DiscordIrcBridge
                 }
                 else
                 {
-                    if (!message.Params[0].StartsWith('#'))
+                    if (!param.StartsWith('#'))
                     {
                         server.EnqueueMessage($":{server.Hostname} 479 {nick} {param} :Unknown channel");
                         return;
