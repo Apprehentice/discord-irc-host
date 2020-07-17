@@ -345,10 +345,13 @@ namespace DiscordIrcBridge
                     {
                         if (!bans.Contains(newGuildUser.Id))
                             bans.Add(newGuildUser.Id);
+
+                        File.WriteAllText("./bans.json", JsonConvert.SerializeObject(bans));
                     }
                     else if (lostRoles.Any(r => r.Id == config.BannedRole.Value))
                     {
                         bans.Remove(newGuildUser.Id);
+                        File.WriteAllText("./bans.json", JsonConvert.SerializeObject(bans));
                     }
                 }
 
