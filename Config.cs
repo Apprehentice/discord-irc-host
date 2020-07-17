@@ -13,5 +13,6 @@ namespace DiscordIrcBridge
         public int OutgoingMessageLimit = 25;
         public Dictionary<ulong, string> RoleTags = new Dictionary<ulong, string>();
         public bool PreserveBans = true;
+        public int NamesPerEntry = 20;
     }
 }

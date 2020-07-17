@@ -800,7 +800,10 @@ namespace DiscordIrcBridge
             var guilds = client.Guilds;
             guild = guilds.Where(g => g.Id == guildId).FirstOrDefault();
             if (guild == null)
+            {
                 server.Stop();
+                return;
+            }
 
             if (config.BannedRole.HasValue && config.PreserveBans)
             {
@@ -892,7 +895,7 @@ namespace DiscordIrcBridge
             if (message.Params.Count == 0)
                 return;
 
-            server.PriorityEnqueueMessage($":{server.Hostname} PONG {server.Hostname} :{message.Params[0]}");
+            server.PriorityEnqueueMessage($":{server.Hostname} PONG {nick} :{message.Params[0]}");
             server.Ping();
         }
 
@@ -2170,7 +2173,7 @@ namespace DiscordIrcBridge
                         names.Add($"{prefix + u.GetIrcSafeName() + discriminator}!{u.Id}@discord.com");
                         nickLookupDict[u.GetIrcSafeName() + discriminator] = u.Id;
 
-                        if (names.Count == 20)
+                        if (names.Count >= config.NamesPerEntry)
                         {
                             server.EnqueueMessage($":{server.Hostname} 353 {nick} {chanPrefix}{chan.GetIrcSafeName()} :{names.Aggregate((s, n) => s + " " + n)}");
                             names.Clear();

@@ -48,6 +48,7 @@ namespace DiscordIrcBridge
             this.config = config;
             Hostname = config.Hostname;
             listener = new TcpListener(address, config.Port);
+            listener.Server.SendBufferSize = 8092;
         }
 
         public void RegisterCommands(object commandHandler)
