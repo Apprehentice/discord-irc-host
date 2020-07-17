@@ -708,6 +708,8 @@ namespace DiscordIrcBridge
                         tagsList[tagEscape(tag.Value)] = "";
                     }
                 }
+
+                tagsList["discord.com/user"] = message.Author.Id.ToString();
             }
 
             var isAction = !message.Content.Contains('\n') && Regex.IsMatch(message.Content, @"_.*_");
