@@ -115,7 +115,7 @@ namespace DiscordIrcBridge
 
             timeoutTimer.Elapsed += (s, e) =>
             {
-                EnqueueMessage($"PING :{Hostname}");
+                PriorityEnqueueMessage($"PING :{Hostname}");
                 if (!missedPing)
                 {
                     timeoutTimer.Stop();
