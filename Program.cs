@@ -72,7 +72,7 @@ namespace DiscordIrcBridge
             }
             catch (Exception e)
             {
-                logger.Fatal($"Failed to start IRC server: {e.Message}");
+                logger.Fatal($"An uncaught exception was thrown in the IRC server\n\t{e.GetType().FullName}:\n\t\t{e.Message}");
             }
         }
     }

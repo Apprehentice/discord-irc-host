@@ -124,7 +124,7 @@ namespace DiscordIrcBridge
                 }
                 else
                 {
-                    logger.Error("Client timed out");
+                    logger.Fatal("Client timed out");
                     Stop();
                 }
             };
@@ -248,6 +248,7 @@ namespace DiscordIrcBridge
 
         public void Stop()
         {
+            logger.Info("IRC Server stopping...");
             running = false;
             Dispose();
         }
