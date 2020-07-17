@@ -90,6 +90,9 @@ namespace DiscordIrcBridge
 
         private async Task Client_UserIsTyping(SocketUser user, ISocketMessageChannel channel)
         {
+            if (server.CurrentStage == AuthStages.CapsNegotiated)
+                return;
+
             var guildChannel = channel as IGuildChannel;
             if (guildChannel == null)
                 return;
@@ -100,6 +103,9 @@ namespace DiscordIrcBridge
 
         private async Task Client_MessageUpdated(Cacheable<IMessage, ulong> oldMsg, SocketMessage newMsg, ISocketMessageChannel channel)
         {
+            if (server.CurrentStage == AuthStages.CapsNegotiated)
+                return;
+
             if (!oldMsg.HasValue || oldMsg.Value.Content == newMsg.Content)
                 return;
 
@@ -137,6 +143,9 @@ namespace DiscordIrcBridge
 
         private async Task Client_MessageDeleted(Cacheable<IMessage, ulong> message, ISocketMessageChannel channel)
         {
+            if (server.CurrentStage == AuthStages.CapsNegotiated)
+                return;
+
             if (!joinedChannels.ContainsKey(channel.Id))
                 return;
 
@@ -146,6 +155,9 @@ namespace DiscordIrcBridge
 
         private async Task Client_ReactionRemoved(Cacheable<IUserMessage, ulong> message, ISocketMessageChannel channel, SocketReaction reaction)
         {
+            if (server.CurrentStage == AuthStages.CapsNegotiated)
+                return;
+
             if (!joinedChannels.ContainsKey(channel.Id)
                 || !reaction.User.IsSpecified)
                 return;
@@ -158,6 +170,9 @@ namespace DiscordIrcBridge
 
         private async Task Client_ReactionAdded(Cacheable<IUserMessage, ulong> message, ISocketMessageChannel channel, SocketReaction reaction)
         {
+            if (server.CurrentStage == AuthStages.CapsNegotiated)
+                return;
+
             if (!joinedChannels.ContainsKey(channel.Id)
                 || !reaction.User.IsSpecified)
                 return;
@@ -170,6 +185,9 @@ namespace DiscordIrcBridge
 
         private async Task Client_UserUnbanned(SocketUser user, SocketGuild guild)
         {
+            if (server.CurrentStage == AuthStages.CapsNegotiated)
+                return;
+
             if (config.BannedRole.HasValue)
                 return;
 
@@ -185,6 +203,9 @@ namespace DiscordIrcBridge
 
         private async Task Client_UserBanned(SocketUser user, SocketGuild guild)
         {
+            if (server.CurrentStage == AuthStages.CapsNegotiated)
+                return;
+
             if (config.BannedRole.HasValue)
                 return;
 
@@ -200,11 +221,17 @@ namespace DiscordIrcBridge
 
         private async Task Client_UserLeft(SocketGuildUser user)
         {
+            if (server.CurrentStage == AuthStages.CapsNegotiated)
+                return;
+
             server.EnqueueMessage($"{(user.IsBot ? "@discord.com/bot " : "")}:{getNickById(user.Id)}!{user.Id}@discord.com QUIT");
         }
 
         private async Task Client_UserJoined(SocketGuildUser user)
         {
+            if (server.CurrentStage == AuthStages.CapsNegotiated)
+                return;
+
             if (bans.Contains(user.Id) && config.BannedRole.HasValue)
             {
                 await user.AddRoleAsync(guild.GetRole(config.BannedRole.Value));
@@ -245,6 +272,9 @@ namespace DiscordIrcBridge
 
         private async Task Client_UserVoiceStateUpdated(SocketUser user, SocketVoiceState oldState, SocketVoiceState newState)
         {
+            if (server.CurrentStage == AuthStages.CapsNegotiated)
+                return;
+
             var guildUser = user as IGuildUser;
             if (guildUser == null)
                 return;
@@ -291,6 +321,9 @@ namespace DiscordIrcBridge
 
         private async Task Client_GuildMemberUpdated(SocketGuildUser oldGuildUser, SocketGuildUser newGuildUser)
         {
+            if (server.CurrentStage == AuthStages.CapsNegotiated)
+                return;
+
             if (oldGuildUser.Roles.Count != newGuildUser.Roles.Count)
             {
                 var gainedRoles = newGuildUser.Roles.Except(oldGuildUser.Roles);
@@ -404,6 +437,9 @@ namespace DiscordIrcBridge
 
         private async Task Client_RoleUpdated(SocketRole oldRole, SocketRole newRole)
         {
+            if (server.CurrentStage == AuthStages.CapsNegotiated)
+                return;
+
             foreach (var c in joinedChannels)
             {
                 var chan = await guild.GetTextChannelAsync(c.Value.Id);
@@ -464,6 +500,9 @@ namespace DiscordIrcBridge
 
         private async Task Client_ChannelUpdated(SocketChannel oldChannel, SocketChannel newChannel)
         {
+            if (server.CurrentStage == AuthStages.CapsNegotiated)
+                return;
+
             var oldGuildChannel = oldChannel as IGuildChannel;
             var newGuildChannel = newChannel as IGuildChannel;
             if (newGuildChannel == null)
@@ -604,6 +643,9 @@ namespace DiscordIrcBridge
 
         private async Task Client_MessageReceived(SocketMessage socketMessage) // async to avoid `return Task.CompletedTask`
         {
+            if (server.CurrentStage == AuthStages.CapsNegotiated)
+                return;
+
             var message = socketMessage as IUserMessage;
             if (message == null)
                 return;
