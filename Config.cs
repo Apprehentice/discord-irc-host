@@ -14,5 +14,6 @@ namespace DiscordIrcBridge
         public Dictionary<ulong, string> RoleTags = new Dictionary<ulong, string>();
         public bool PreserveBans = true;
         public int NamesPerEntry = 20;
+        public int ClientTimeout = 300;
     }
 }

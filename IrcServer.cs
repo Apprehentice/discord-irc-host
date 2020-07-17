@@ -109,7 +109,7 @@ namespace DiscordIrcBridge
 
             logger.Info($"Client connected! Starting message loop!");
 
-            timeoutTimer = new Timer(12000)
+            timeoutTimer = new Timer(config.ClientTimeout * 1000)
             {
                 AutoReset = false
             };
