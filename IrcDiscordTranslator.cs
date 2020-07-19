@@ -2146,6 +2146,127 @@ namespace DiscordIrcBridge
             }
         }
 
+        [IrcCommand("WHO", preAuth: false, postAuth: false)]
+        public async void WhoHandler(IrcMessage message)
+        {
+            if (message.Params.Count == 0
+                || message.Params[0] == "0"
+                || message.Params[0] == "*")
+            {
+                // List all users
+                foreach (var u in await guild.GetUsersAsync())
+                {
+                    foreach (var chan in joinedChannels)
+                    {
+                        var guildChan = await guild.GetChannelAsync(chan.Key);
+                        if (!u.GetPermissions(guildChan).Has(ChannelPermission.ReadMessages))
+                            continue;
+
+                        string prefix = "";
+                        if (u.Id == guild.OwnerId)
+                        {
+                            prefix += "~";
+                        }
+
+                        if (u.GuildPermissions.Has(GuildPermission.Administrator))
+                        {
+                            prefix += "&";
+                        }
+
+                        if (u.GuildPermissions.Has(GuildPermission.ManageChannels))
+                        {
+                            prefix += "@";
+                        }
+
+                        if (u.GuildPermissions.Has(GuildPermission.KickMembers))
+                        {
+                            prefix += "%";
+                        }
+
+                        if (u.GetPermissions(guildChan).Has(ChannelPermission.SendMessages))
+                        {
+                            prefix += "+";
+                        }
+
+                        server.EnqueueMessage($":{server.Hostname} 352 {nick} {chan.Value.IrcName} {u.Id} discord.com discord.com {getNickById(u.Id)} G{prefix} :0 {u.Username}#{u.Discriminator}");
+                    }
+                }
+                server.EnqueueMessage($":{server.Hostname} 315 * :End of WHO list");
+            }
+            else
+            {
+                // Find the specified user
+                var matches = Regex.Match(message.Params[0], @"(?<nick>[^!]+)(?:!(?<id>[^@]+)@.*)?");
+                if (!matches.Success)
+                {
+                    server.EnqueueMessage($":{server.Hostname} 315 {message.Params[0]} :End of WHO list");
+                    return;
+                }
+
+                IGuildUser u = null;
+                if (matches.Groups["id"].Success)
+                {
+                    if (!ulong.TryParse(matches.Groups["id"].Value, out ulong id))
+                    {
+                        server.EnqueueMessage($":{server.Hostname} 315 {message.Params[0]} :End of WHO list");
+                        return;
+                    }
+
+                    u = await guild.GetUserAsync(id);
+                    if (u == null)
+                    {
+                        server.EnqueueMessage($":{server.Hostname} 315 {message.Params[0]} :End of WHO list");
+                        return;
+                    }
+                }
+                else if (matches.Groups["nick"].Success)
+                {
+                    u = await findUserByIrcName(matches.Groups["nick"].Value);
+                    if (u == null)
+                    {
+                        server.EnqueueMessage($":{server.Hostname} 315 {message.Params[0]} :End of WHO list");
+                        return;
+                    }
+                }
+
+                foreach (var chan in joinedChannels)
+                {
+                    var guildChan = await guild.GetChannelAsync(chan.Key);
+                    if (!u.GetPermissions(guildChan).Has(ChannelPermission.ReadMessages))
+                        continue;
+
+                    string prefix = "";
+                    if (u.Id == guild.OwnerId)
+                    {
+                        prefix += "~";
+                    }
+
+                    if (u.GuildPermissions.Has(GuildPermission.Administrator))
+                    {
+                        prefix += "&";
+                    }
+
+                    if (u.GuildPermissions.Has(GuildPermission.ManageChannels))
+                    {
+                        prefix += "@";
+                    }
+
+                    if (u.GuildPermissions.Has(GuildPermission.KickMembers))
+                    {
+                        prefix += "%";
+                    }
+
+                    if (u.GetPermissions(guildChan).Has(ChannelPermission.SendMessages))
+                    {
+                        prefix += "+";
+                    }
+
+                    server.EnqueueMessage($":{server.Hostname} 352 {nick} {chan.Value.IrcName} {u.Id} discord.com discord.com {getNickById(u.Id)} G{prefix} :0 {u.Username}#{u.Discriminator}");
+                }
+                server.EnqueueMessage($":{server.Hostname} 315 {message.Params[0]} :End of WHO list");
+            }
+        }
+
         private void checkHandshakeStatus()
         {
             var rfcAuth = HandshakeFlags.Nick | HandshakeFlags.Pass | HandshakeFlags.User;
