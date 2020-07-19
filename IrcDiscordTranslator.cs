@@ -118,26 +118,85 @@ namespace DiscordIrcBridge
             if (!joinedChannels.ContainsKey(channel.Id))
                 return;
 
-            var ircChan = joinedChannels[channel.Id];
+            var isPrivateMessage = (newMsg.Channel as IPrivateChannel) != null;
+            if (!handleDms && isPrivateMessage)
+                return;
+
+            string target;
+            if (isPrivateMessage)
+            {
+                target = nick;
+            }
+            else
+            {
+                target = "#" + newMsg.Channel.Name;
+            }
+
+            string userNick;
+            string userUser;
+            if (!newMsg.Author.IsWebhook)
+            {
+                userNick = getNickById(newMsg.Author.Id);
+                userUser = newMsg.Author.Id.ToString();
+            }
+            else
+            {
+                userNick = newMsg.Author.GetIrcSafeName();
+                userUser = "webhook";
+            }
+
             var tagsList = new Dictionary<string, string>();
             if (currentCapabilities.message_tags)
             {
                 if (newMsg.Author.IsBot)
                     tagsList["discord.com/bot"] = "";
+
+
+                if (guildUser != null)
+                {
+                    foreach (var tag in config.RoleTags)
+                    {
+                        if (!guildUser.RoleIds.Contains(tag.Key))
+                            continue;
+
+                        if (string.IsNullOrWhiteSpace(tag.Value))
+                            return;
+
+                        tagsList[tagEscape(tag.Value)] = "";
+                    }
+                }
+
+                tagsList["discord.com/user"] = newMsg.Author.Id.ToString();
             }
 
-            tagsList["+reply"] = newMsg.Id.ToString();
+            var isAction = !newMsg.Content.Contains('\n') && Regex.IsMatch(newMsg.Content, @"_.*_");
 
             var lines = newMsg.Content.Split('\n');
+            var lineNumber = 1;
             foreach (var line in lines)
             {
+                if (currentCapabilities.message_tags)
+                {
+                    if (lines.Length > 1)
+                        tagsList["+reply"] = newMsg.Id.ToString() + $"-{lineNumber++}";
+                    else
+                        tagsList["+reply"] = newMsg.Id.ToString();
+                }
+
                 string tags = "@";
                 foreach (var tag in tagsList)
                 {
-                    tags += tagEscape($"{tag.Key}={tag.Value}") + ";";
+                    var val = string.IsNullOrWhiteSpace(tag.Value) ? "" : $"={tag.Value}";
+                    tags += tagEscape($"{tag.Key}{val}") + ";";
                 }
 
-                server.EnqueueMessage($"{tags} :{guildUser.GetIrcSafeName()}@{guildUser.Id}@discord.com EDITMSG #{ircChan.IrcName} :{line.Replace("\r", "")}");
+                var msgContent = parseDiscordMentions(line.Replace("\r", ""));
+                if (isAction)
+                {
+                    var actionMatch = Regex.Match(msgContent, @"_(?<content>.*)_");
+                    msgContent = $"ACTION {actionMatch.Groups["content"].Value}";
+                }
+                server.EnqueueMessage($"{tags} :{userNick}!{userUser}@discord.com EDITMSG {target} :{msgContent}");
             }
         }
 
@@ -165,7 +224,10 @@ namespace DiscordIrcBridge
             var ircChan = joinedChannels[channel.Id];
             var guildUser = reaction.User.Value as IGuildUser;
 
-            server.EnqueueMessage($"@{(guildUser.IsBot ? "discord.com/bot;" : "")}+reply={message.Id};+discord.com/react-remove={reaction.Emote.Name} :{guildUser.GetIrcSafeName()}!{guildUser.Id}@discord.com TAGMSG #{ircChan.Name}");
+            if (guildUser == null)
+                return;
+
+            server.EnqueueMessage($"@{(guildUser.IsBot ? "discord.com/bot;" : "")}discord.com/user={guildUser.Id};+reply={message.Id};+discord.com/react-remove={reaction.Emote.Name} :{guildUser.GetIrcSafeName()}!{guildUser.Id}@discord.com TAGMSG #{ircChan.Name}");
         }
 
         private async Task Client_ReactionAdded(Cacheable<IUserMessage, ulong> message, ISocketMessageChannel channel, SocketReaction reaction)
@@ -180,7 +242,10 @@ namespace DiscordIrcBridge
             var ircChan = joinedChannels[channel.Id];
             var guildUser = reaction.User.Value as IGuildUser;
 
-            server.EnqueueMessage($"@{(guildUser.IsBot ? "discord.com/bot;" : "")}+reply={message.Id};+discord.com/react-add={reaction.Emote.Name} :{guildUser.GetIrcSafeName()}!{guildUser.Id}@discord.com TAGMSG #{ircChan.Name}");
+            if (guildUser == null)
+                return;
+
+            server.EnqueueMessage($"@{(guildUser.IsBot ? "discord.com/bot;" : "")}discord.com/user={guildUser.Id};+reply={message.Id};+discord.com/react-add={reaction.Emote.Name} :{guildUser.GetIrcSafeName()}!{guildUser.Id}@discord.com TAGMSG #{ircChan.Name}");
         }
 
         private async Task Client_UserUnbanned(SocketUser user, SocketGuild guild)
