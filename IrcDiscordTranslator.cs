@@ -777,7 +777,7 @@ namespace DiscordIrcBridge
                 tagsList["discord.com/user"] = message.Author.Id.ToString();
             }
 
-            var isAction = !message.Content.Contains('\n') && Regex.IsMatch(message.Content, @"_.*_");
+            var isAction = !message.Content.Contains('\n') && Regex.IsMatch(message.Content, @"^_.*_$");
 
             var lines = message.Content.Split('\n');
             var lineNumber = 1;
