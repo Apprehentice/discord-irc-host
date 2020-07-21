@@ -777,7 +777,7 @@ namespace DiscordIrcBridge
                 tagsList["discord.com/user"] = message.Author.Id.ToString();
             }
 
-            var isAction = !message.Content.Contains('\n') && Regex.IsMatch(message.Content, @"^_.*_$");
+            var isAction = !message.Content.Contains('\n') && Regex.IsMatch(message.Content, @"^_.*_");
 
             var lines = message.Content.Split('\n');
             var lineNumber = 1;
@@ -1036,6 +1036,27 @@ namespace DiscordIrcBridge
                     {
                         topicStr = "";
                     }
+                }
+
+                var user = await chan.GetUserAsync(client.CurrentUser.Id);
+                if (user.GuildPermissions.Administrator)
+                {
+                    server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} +a {getNickById(user.Id)}");
+                }
+
+                if (user.GuildPermissions.ManageChannels)
+                {
+                    server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} +o {getNickById(user.Id)}");
+                }
+
+                if (user.GuildPermissions.KickMembers)
+                {
+                    server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} +h {getNickById(user.Id)}");
+                }
+
+                if (user.GetPermissions(chan).SendMessages)
+                {
+                    server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} +v {getNickById(user.Id)}");
                 }
 
                 joinedChannels[chan.Id] = new IrcChannel(chanId, chanName, isVoice);
@@ -2267,6 +2288,24 @@ namespace DiscordIrcBridge
             }
         }
 
+        [IrcCommand("NAMES", preAuth: false, postAuth: false)]
+        public async void NamesHandler(IrcMessage message)
+        {
+            if (message.Params.Count == 0)
+                return;
+
+            if (!joinedChannels.Any(c => c.Value.IrcName == message.Params[0].Substring(1)))
+            {
+                server.EnqueueMessage($":{server.Hostname} 403 {nick} {message.Params[0]} :No such channel");
+                return;
+            }
+
+            var chanId = joinedChannels.Where(c => c.Value.IrcName == message.Params[0].Substring(1)).First().Key;
+            var chan = await guild.GetTextChannelAsync(chanId);
+
+            await sendNames(chan as IGuildChannel);
+        }
+
         private void checkHandshakeStatus()
         {
             var rfcAuth = HandshakeFlags.Nick | HandshakeFlags.Pass | HandshakeFlags.User;
@@ -2311,12 +2350,15 @@ namespace DiscordIrcBridge
             var chanPrefix = (chan as IVoiceChannel) != null ? "&" : "#";
             if (joinedChannels.ContainsKey(chan.Id))
             {
+                var prefix = "";
                 var names = new List<string>();
+                names.Add(nick);
+
                 await foreach (var ul in chan.GetUsersAsync())
                 {
                     foreach (var u in ul)
                     {
-                        string prefix = "";
+                        prefix = "";
                         if (u.Id == guild.OwnerId)
                         {
                             if (currentCapabilities.multi_prefix)
@@ -2357,15 +2399,15 @@ namespace DiscordIrcBridge
                                 prefix = "+";
                         }
 
-                        string discriminator = "";
+                        string discr = "";
                         if ((u.GetIrcSafeName() == nick && u.Id != client.CurrentUser.Id)
                             || nickLookupDict.Any(n => n.Key == u.GetIrcSafeName() && n.Value != u.Id))
                         {
-                            discriminator = "|" + u.Discriminator;
+                            discr = "|" + u.Discriminator;
                         }
 
-                        names.Add($"{prefix + u.GetIrcSafeName() + discriminator}!{u.Id}@discord.com");
-                        nickLookupDict[u.GetIrcSafeName() + discriminator] = u.Id;
+                        names.Add($"{prefix + u.GetIrcSafeName() + discr}!{u.Id}@discord.com");
+                        nickLookupDict[u.GetIrcSafeName() + discr] = u.Id;
 
                         if (names.Count >= config.NamesPerEntry)
                         {
