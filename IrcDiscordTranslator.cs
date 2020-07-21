@@ -1038,6 +1038,12 @@ namespace DiscordIrcBridge
                     }
                 }
 
+                joinedChannels[chan.Id] = new IrcChannel(chanId, chanName, isVoice);
+                server.EnqueueMessage($":{nick}!{client.CurrentUser.Id}@discord.com JOIN {param}");
+                server.EnqueueMessage($":{server.Hostname} 332 {nick} {param} :{topicStr}");
+                server.EnqueueMessage($":{server.Hostname} 333 {nick} {param} {server.Hostname} {(Int32)(DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1))).TotalSeconds}");
+                await sendNames(chan);
+
                 var user = await guild.GetUserAsync(client.CurrentUser.Id);
                 if (user.GuildPermissions.Administrator)
                 {
@@ -1058,12 +1064,6 @@ namespace DiscordIrcBridge
                 {
                     server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} +v {getNickById(user.Id)}");
                 }
-
-                joinedChannels[chan.Id] = new IrcChannel(chanId, chanName, isVoice);
-                server.EnqueueMessage($":{nick}!{client.CurrentUser.Id}@discord.com JOIN {param}");
-                server.EnqueueMessage($":{server.Hostname} 332 {nick} {param} :{topicStr}");
-                server.EnqueueMessage($":{server.Hostname} 333 {nick} {param} {server.Hostname} {(Int32)(DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1))).TotalSeconds}");
-                await sendNames(chan);
             }
         }
 
