@@ -1038,7 +1038,7 @@ namespace DiscordIrcBridge
                     }
                 }
 
-                var user = await chan.GetUserAsync(client.CurrentUser.Id);
+                var user = await guild.GetUserAsync(client.CurrentUser.Id);
                 if (user.GuildPermissions.Administrator)
                 {
                     server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} +a {getNickById(user.Id)}");
