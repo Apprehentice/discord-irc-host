@@ -2491,7 +2491,7 @@ namespace DiscordIrcBridge
                     currentEmbeds[chanId].WithUrl(message.Params[2]);
                     break;
                 case "FIELD":
-                    if (message.Params.Count < 4)
+                    if (message.Params.Count < 3)
                     {
                         server.EnqueueMessage($":{server.Hostname} FAIL EMBED EMBED_FAIL {message.Params[0]} {message.Params[1]} :Not enough parameters");
                         return;
@@ -2502,10 +2502,41 @@ namespace DiscordIrcBridge
                         currentEmbeds[chanId] = new EmbedBuilder();
                     }
 
-                    var field = message.Params[2];
-                    var value = message.Params[3];
-                    var inline = message.Params.Count > 4;
-                    currentEmbeds[chanId].AddField(field, value, inline);
+                    if (!message.Params[2].Contains('=')
+                        || message.Params[2].Length < message.Params[2].IndexOf('='))
+                    {
+                        server.EnqueueMessage($":{server.Hostname} FAIL EMBED EMBED_FAIL {message.Params[0]} {message.Params[1]} :Invalid parameters");
+                        return;
+                    }
+
+                    var field = message.Params[2].Substring(0, message.Params[2].IndexOf('='));
+                    var value = message.Params[2].Substring(message.Params[2].IndexOf('=') + 1);
+
+                    currentEmbeds[chanId].AddField(field, value, false);
+                    break;
+                case "INLINE":
+                    if (message.Params.Count < 3)
+                    {
+                        server.EnqueueMessage($":{server.Hostname} FAIL EMBED EMBED_FAIL {message.Params[0]} {message.Params[1]} :Not enough parameters");
+                        return;
+                    }
+
+                    if (!currentEmbeds.ContainsKey(chanId))
+                    {
+                        currentEmbeds[chanId] = new EmbedBuilder();
+                    }
+
+                    if (!message.Params[2].Contains('=')
+                        || message.Params[2].Length < message.Params[2].IndexOf('='))
+                    {
+                        server.EnqueueMessage($":{server.Hostname} FAIL EMBED EMBED_FAIL {message.Params[0]} {message.Params[1]} :Invalid parameters");
+                        return;
+                    }
+
+                    var inlineField = message.Params[2].Substring(0, message.Params[2].IndexOf('='));
+                    var inlineValue = message.Params[2].Substring(message.Params[2].IndexOf('=') + 1);
+
+                    currentEmbeds[chanId].AddField(inlineField, inlineValue, true);
                     break;
                 case "END":
                     if (currentEmbeds.ContainsKey(chanId))
