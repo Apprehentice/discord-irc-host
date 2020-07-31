@@ -2372,9 +2372,9 @@ namespace DiscordIrcBridge
                         currentEmbeds[chanId] = new EmbedBuilder();
                     }
 
-                    if (!int.TryParse(message.Params[3], out int red)
-                        || !int.TryParse(message.Params[4], out int green)
-                        || !int.TryParse(message.Params[5], out int blue))
+                    if (!int.TryParse(message.Params[2], out int red)
+                        || !int.TryParse(message.Params[3], out int green)
+                        || !int.TryParse(message.Params[4], out int blue))
                     {
                         server.EnqueueMessage($":{server.Hostname} FAIL EMBED EMBED_FAIL {message.Params[0]} {message.Params[1]} :Invalid parameters");
                         return;
@@ -2394,10 +2394,10 @@ namespace DiscordIrcBridge
                         currentEmbeds[chanId] = new EmbedBuilder();
                     }
 
-                    currentEmbeds[chanId].WithDescription(message.Params[3]);
+                    currentEmbeds[chanId].WithDescription(message.Params[2]);
                     break;
                 case "FOOTER":
-                    if (message.Params.Count < 3)
+                    if (message.Params.Count < 4)
                     {
                         server.EnqueueMessage($":{server.Hostname} FAIL EMBED EMBED_FAIL {message.Params[0]} {message.Params[1]} :Not enough parameters");
                         return;
@@ -2409,7 +2409,7 @@ namespace DiscordIrcBridge
                     }
 
                     var footer = message.Params[3];
-                    var footerIconUrl = message.Params.Count > 4 ? message.Params[4] : null;
+                    var footerIconUrl = message.Params[2] != "*" ? message.Params[2] : null;
                     currentEmbeds[chanId].WithFooter(footer, footerIconUrl);
                     break;
                 case "IMAGE":
@@ -2424,7 +2424,7 @@ namespace DiscordIrcBridge
                         currentEmbeds[chanId] = new EmbedBuilder();
                     }
 
-                    currentEmbeds[chanId].WithImageUrl(message.Params[3]);
+                    currentEmbeds[chanId].WithImageUrl(message.Params[2]);
                     break;
                 case "THUMBNAIL":
                     if (message.Params.Count < 3)
@@ -2438,7 +2438,7 @@ namespace DiscordIrcBridge
                         currentEmbeds[chanId] = new EmbedBuilder();
                     }
 
-                    currentEmbeds[chanId].WithThumbnailUrl(message.Params[3]);
+                    currentEmbeds[chanId].WithThumbnailUrl(message.Params[2]);
                     break;
                 case "TIMESTAMP":
                     if (message.Params.Count < 3)
@@ -2452,7 +2452,7 @@ namespace DiscordIrcBridge
                         currentEmbeds[chanId] = new EmbedBuilder();
                     }
 
-                    if (!double.TryParse(message.Params[3], out double utime))
+                    if (!double.TryParse(message.Params[2], out double utime))
                     {
                         server.EnqueueMessage($":{server.Hostname} FAIL EMBED EMBED_FAIL {message.Params[0]} {message.Params[1]} :Invalid parameters");
                         return;
@@ -2474,7 +2474,7 @@ namespace DiscordIrcBridge
                         currentEmbeds[chanId] = new EmbedBuilder();
                     }
 
-                    currentEmbeds[chanId].WithTitle(message.Params[3]);
+                    currentEmbeds[chanId].WithTitle(message.Params[2]);
                     break;
                 case "URL":
                     if (message.Params.Count < 3)
@@ -2488,12 +2488,12 @@ namespace DiscordIrcBridge
                         currentEmbeds[chanId] = new EmbedBuilder();
                     }
 
-                    currentEmbeds[chanId].WithUrl(message.Params[3]);
+                    currentEmbeds[chanId].WithUrl(message.Params[2]);
                     break;
                 case "END":
                     if (currentEmbeds.ContainsKey(chanId))
                     {
-                        var body = message.Params.Count > 3 ? message.Params[3] : null;
+                        var body = message.Params.Count > 2 ? message.Params[2] : null;
                         await chan.SendMessageAsync(body, embed: currentEmbeds[chanId].Build());
                         currentEmbeds.Remove(chanId);
                     }
