@@ -48,6 +48,8 @@ namespace DiscordIrcBridge
         private Dictionary<string, ulong> nickLookupDict = new Dictionary<string, ulong>();
         private Capabilities currentCapabilities = new Capabilities();
 
+        private Dictionary<ulong, EmbedBuilder> currentEmbeds = new Dictionary<ulong, EmbedBuilder>();
+
         private List<ulong> bans = new List<ulong>();
 
         private string userModes = "";
@@ -2304,6 +2306,202 @@ namespace DiscordIrcBridge
             var chan = await guild.GetTextChannelAsync(chanId);
 
             await sendNames(chan as IGuildChannel);
+        }
+
+        [IrcCommand("EMBED", preAuth: false, postAuth: false)]
+        public async void EmbedHandler(IrcMessage message)
+        {
+            if (message.Params.Count < 2)
+            {
+                // FAIL <command> <identifier> <context> <subcommand>
+                server.EnqueueMessage($":{server.Hostname} FAIL EMBED EMBED_FAIL * * :Not enough parameters");
+                return;
+            }
+
+            if (!joinedChannels.Any(c => c.Value.IrcName == message.Params[0].Substring(1)))
+            {
+                server.EnqueueMessage($":{server.Hostname} FAIL EMBED EMBED_FAIL {message.Params[0]} * :Unknown channel");
+                return;
+            }
+
+            var chanId = joinedChannels.Where(c => c.Value.IrcName == message.Params[0].Substring(1)).First().Key;
+            var chan = await guild.GetTextChannelAsync(chanId);
+
+            switch (message.Params[1])
+            {
+                case "AUTHOR":
+                    if (message.Params.Count < 3)
+                    {
+                        server.EnqueueMessage($":{server.Hostname} FAIL EMBED EMBED_FAIL {message.Params[0]} {message.Params[1]} :Not enough parameters");
+                        return;
+                    }
+
+                    if (!currentEmbeds.ContainsKey(chanId))
+                    {
+                        currentEmbeds[chanId] = new EmbedBuilder();
+                    }
+
+                    if (message.Params.Count == 3)
+                    {
+                        var author = await findUserByIrcName(message.Params[2]);
+                        if (author == null)
+                        {
+                            server.EnqueueMessage($":{server.Hostname} FAIL EMBED EMBED_FAIL {message.Params[0]} {message.Params[1]} :No such user");
+                            return;
+                        }
+
+                        currentEmbeds[chanId].WithAuthor(author);
+                    }
+                    else
+                    {
+                        var authorName = message.Params[2];
+                        var authorIconUrl = message.Params.Count > 3 ? message.Params[3] : null;
+                        var authorUrl = message.Params.Count > 4 ? message.Params[4] : null;
+                        currentEmbeds[chanId].WithAuthor(authorName, authorIconUrl, authorUrl);
+                    }
+                    break;
+                case "COLOR":
+                    if (message.Params.Count < 5)
+                    {
+                        server.EnqueueMessage($":{server.Hostname} FAIL EMBED EMBED_FAIL {message.Params[0]} {message.Params[1]} :Not enough parameters");
+                        return;
+                    }
+
+                    if (!currentEmbeds.ContainsKey(chanId))
+                    {
+                        currentEmbeds[chanId] = new EmbedBuilder();
+                    }
+
+                    if (!int.TryParse(message.Params[3], out int red)
+                        || !int.TryParse(message.Params[4], out int green)
+                        || !int.TryParse(message.Params[5], out int blue))
+                    {
+                        server.EnqueueMessage($":{server.Hostname} FAIL EMBED EMBED_FAIL {message.Params[0]} {message.Params[1]} :Invalid parameters");
+                        return;
+                    }
+
+                    currentEmbeds[chanId].WithColor(red, green, blue);
+                    break;
+                case "DESCRIPTION":
+                    if (message.Params.Count < 3)
+                    {
+                        server.EnqueueMessage($":{server.Hostname} FAIL EMBED EMBED_FAIL {message.Params[0]} {message.Params[1]} :Not enough parameters");
+                        return;
+                    }
+
+                    if (!currentEmbeds.ContainsKey(chanId))
+                    {
+                        currentEmbeds[chanId] = new EmbedBuilder();
+                    }
+
+                    currentEmbeds[chanId].WithDescription(message.Params[3]);
+                    break;
+                case "FOOTER":
+                    if (message.Params.Count < 3)
+                    {
+                        server.EnqueueMessage($":{server.Hostname} FAIL EMBED EMBED_FAIL {message.Params[0]} {message.Params[1]} :Not enough parameters");
+                        return;
+                    }
+
+                    if (!currentEmbeds.ContainsKey(chanId))
+                    {
+                        currentEmbeds[chanId] = new EmbedBuilder();
+                    }
+
+                    var footer = message.Params[3];
+                    var footerIconUrl = message.Params.Count > 4 ? message.Params[4] : null;
+                    currentEmbeds[chanId].WithFooter(footer, footerIconUrl);
+                    break;
+                case "IMAGE":
+                    if (message.Params.Count < 3)
+                    {
+                        server.EnqueueMessage($":{server.Hostname} FAIL EMBED EMBED_FAIL {message.Params[0]} {message.Params[1]} :Not enough parameters");
+                        return;
+                    }
+
+                    if (!currentEmbeds.ContainsKey(chanId))
+                    {
+                        currentEmbeds[chanId] = new EmbedBuilder();
+                    }
+
+                    currentEmbeds[chanId].WithImageUrl(message.Params[3]);
+                    break;
+                case "THUMBNAIL":
+                    if (message.Params.Count < 3)
+                    {
+                        server.EnqueueMessage($":{server.Hostname} FAIL EMBED EMBED_FAIL {message.Params[0]} {message.Params[1]} :Not enough parameters");
+                        return;
+                    }
+
+                    if (!currentEmbeds.ContainsKey(chanId))
+                    {
+                        currentEmbeds[chanId] = new EmbedBuilder();
+                    }
+
+                    currentEmbeds[chanId].WithThumbnailUrl(message.Params[3]);
+                    break;
+                case "TIMESTAMP":
+                    if (message.Params.Count < 3)
+                    {
+                        server.EnqueueMessage($":{server.Hostname} FAIL EMBED EMBED_FAIL {message.Params[0]} {message.Params[1]} :Not enough parameters");
+                        return;
+                    }
+
+                    if (!currentEmbeds.ContainsKey(chanId))
+                    {
+                        currentEmbeds[chanId] = new EmbedBuilder();
+                    }
+
+                    if (!double.TryParse(message.Params[3], out double utime))
+                    {
+                        server.EnqueueMessage($":{server.Hostname} FAIL EMBED EMBED_FAIL {message.Params[0]} {message.Params[1]} :Invalid parameters");
+                        return;
+                    }
+
+                    var timestamp = new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc).AddSeconds(utime).ToLocalTime();
+
+                    currentEmbeds[chanId].WithTimestamp(new DateTimeOffset(timestamp));
+                    break;
+                case "TITLE":
+                    if (message.Params.Count < 3)
+                    {
+                        server.EnqueueMessage($":{server.Hostname} FAIL EMBED EMBED_FAIL {message.Params[0]} {message.Params[1]} :Not enough parameters");
+                        return;
+                    }
+
+                    if (!currentEmbeds.ContainsKey(chanId))
+                    {
+                        currentEmbeds[chanId] = new EmbedBuilder();
+                    }
+
+                    currentEmbeds[chanId].WithTitle(message.Params[3]);
+                    break;
+                case "URL":
+                    if (message.Params.Count < 3)
+                    {
+                        server.EnqueueMessage($":{server.Hostname} FAIL EMBED EMBED_FAIL {message.Params[0]} {message.Params[1]} :Not enough parameters");
+                        return;
+                    }
+
+                    if (!currentEmbeds.ContainsKey(chanId))
+                    {
+                        currentEmbeds[chanId] = new EmbedBuilder();
+                    }
+
+                    currentEmbeds[chanId].WithUrl(message.Params[3]);
+                    break;
+                case "END":
+                    if (currentEmbeds.ContainsKey(chanId))
+                    {
+                        var body = message.Params.Count > 3 ? message.Params[3] : null;
+                        await chan.SendMessageAsync(body, embed: currentEmbeds[chanId].Build());
+                        currentEmbeds.Remove(chanId);
+                    }
+                    break;
+                default:
+                    server.EnqueueMessage($":{server.Hostname} FAIL EMBED EMBED_FAIL {message.Params[0]} {message.Params[1]} :Unknown command");
+                    break;
+            }
         }
 
         private void checkHandshakeStatus()
