@@ -2542,7 +2542,25 @@ namespace DiscordIrcBridge
                     if (currentEmbeds.ContainsKey(chanId))
                     {
                         var body = message.Params.Count > 2 ? message.Params[2] : null;
-                        await chan.SendMessageAsync(body, embed: currentEmbeds[chanId].Build());
+
+                        var currentUser = await guild.GetUserAsync(client.CurrentUser.Id);
+
+                        if (!currentUser.GetPermissions(chan).Has(ChannelPermission.SendMessages))
+                        {
+                            server.EnqueueMessage($":{server.Hostname} 404 {nick} {message.Params[0]} :SendMessages permission required");
+                            return;
+                        }
+
+                        var msgStr = message.Params[1];
+                        var actionMatch = Regex.Match(message.Params[1], @"^ACTION (?<content>.*)$");
+                        if (actionMatch.Success)
+                        {
+                            msgStr = "_" + actionMatch.Groups["content"].Value + "_";
+                        }
+
+                        msgStr = await parseIrcMentions(msgStr);
+                        await chan.SendMessageAsync(msgStr.Substring(0, Math.Min(msgStr.Length, 2000)));
+
                         server.EnqueueMessage($":{nick} PRIVMSG {message.Params[0]} :{body}");
                         currentEmbeds.Remove(chanId);
                     }
