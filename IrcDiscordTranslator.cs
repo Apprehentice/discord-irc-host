@@ -2490,11 +2490,29 @@ namespace DiscordIrcBridge
 
                     currentEmbeds[chanId].WithUrl(message.Params[2]);
                     break;
+                case "FIELD":
+                    if (message.Params.Count < 4)
+                    {
+                        server.EnqueueMessage($":{server.Hostname} FAIL EMBED EMBED_FAIL {message.Params[0]} {message.Params[1]} :Not enough parameters");
+                        return;
+                    }
+
+                    if (!currentEmbeds.ContainsKey(chanId))
+                    {
+                        currentEmbeds[chanId] = new EmbedBuilder();
+                    }
+
+                    var field = message.Params[2];
+                    var value = message.Params[3];
+                    var inline = message.Params.Count > 4;
+                    currentEmbeds[chanId].AddField(field, value, inline);
+                    break;
                 case "END":
                     if (currentEmbeds.ContainsKey(chanId))
                     {
                         var body = message.Params.Count > 2 ? message.Params[2] : null;
                         await chan.SendMessageAsync(body, embed: currentEmbeds[chanId].Build());
+                        server.EnqueueMessage($":{nick} PRIVMSG {message.Params[0]} :{body}");
                         currentEmbeds.Remove(chanId);
                     }
                     break;
