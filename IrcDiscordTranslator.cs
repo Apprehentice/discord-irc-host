@@ -2764,7 +2764,7 @@ namespace DiscordIrcBridge
                 foreach (var ul in await guild.GetUsersAsync())
                 {
                     var nick = getNickById(ul.Id);
-                    input = Regex.Replace(input, @$"\b{Regex.Escape(nick)}\b", $@"<@{ul.Id}>");
+                    input = Regex.Replace(input, @$"\b(?<![/\\%&]){Regex.Escape(nick)}\b", $@"<@{ul.Id}>");
                 }
             }
 
