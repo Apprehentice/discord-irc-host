@@ -1097,6 +1097,7 @@ namespace DiscordIrcBridge
         }
 
         [IrcCommand("PRIVMSG", preAuth: false, postAuth: false)]
+        [IrcCommand("NOTICE", preAuth: false, postAuth: false)]
         public async void PrivmsgHandler(IrcMessage message)
         {
             var isChannel = message.Params[0].StartsWith('#');
