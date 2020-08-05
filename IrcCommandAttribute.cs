@@ -4,7 +4,7 @@ using System.Text;
 
 namespace DiscordIrcBridge
 {
-    [AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
+    [AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
     public class IrcCommandAttribute : Attribute
     {
         public IrcCommandAttribute(string command, bool preAuth = true, bool postAuth = true, bool postCaps = true)

@@ -59,43 +59,46 @@ namespace DiscordIrcBridge
 
             foreach (var m in methods)
             {
-                var a = m.GetCustomAttribute(typeof(IrcCommandAttribute)) as IrcCommandAttribute;
-                if (a.PreAuth)
+                var attrs = m.GetCustomAttributes<IrcCommandAttribute>();
+                foreach (var a in attrs)
                 {
-                    if (preAuthCommands.ContainsKey(a.Command))
-                        logger.Warn($"PreAuth command '{a.Command}' already exists! Overwriting!");
-
-                    var d = Delegate.CreateDelegate(typeof(IrcCommandHandler), commandHandler, m) as IrcCommandHandler;
-                    if (d != null)
+                    if (a.PreAuth)
                     {
-                        preAuthCommands[a.Command] = d;
-                        logger.Debug($"Registered PreAuth command '{a.Command}' from '{m.DeclaringType.FullName}'");
+                        if (preAuthCommands.ContainsKey(a.Command))
+                            logger.Warn($"PreAuth command '{a.Command}' already exists! Overwriting!");
+
+                        var d = Delegate.CreateDelegate(typeof(IrcCommandHandler), commandHandler, m) as IrcCommandHandler;
+                        if (d != null)
+                        {
+                            preAuthCommands[a.Command] = d;
+                            logger.Debug($"Registered PreAuth command '{a.Command}' from '{m.DeclaringType.FullName}'");
+                        }
                     }
-                }
 
-                if (a.PostAuth)
-                {
-                    if (preCapCommands.ContainsKey(a.Command))
-                        logger.Warn($"PreCap command '{a.Command}' already exists! Overwriting!");
-
-                    var d = Delegate.CreateDelegate(typeof(IrcCommandHandler), commandHandler, m) as IrcCommandHandler;
-                    if (d != null)
+                    if (a.PostAuth)
                     {
-                        preCapCommands[a.Command] = d;
-                        logger.Debug($"Registered PreCap command '{a.Command}' from '{m.DeclaringType.FullName}'");
+                        if (preCapCommands.ContainsKey(a.Command))
+                            logger.Warn($"PreCap command '{a.Command}' already exists! Overwriting!");
+
+                        var d = Delegate.CreateDelegate(typeof(IrcCommandHandler), commandHandler, m) as IrcCommandHandler;
+                        if (d != null)
+                        {
+                            preCapCommands[a.Command] = d;
+                            logger.Debug($"Registered PreCap command '{a.Command}' from '{m.DeclaringType.FullName}'");
+                        }
                     }
-                }
 
-                if (a.PostCaps)
-                {
-                    if (postCapCommands.ContainsKey(a.Command))
-                        logger.Warn($"PostCap command '{a.Command}' already exists! Overwriting!");
-
-                    var d = Delegate.CreateDelegate(typeof(IrcCommandHandler), commandHandler, m) as IrcCommandHandler;
-                    if (d != null)
+                    if (a.PostCaps)
                     {
-                        postCapCommands[a.Command] = d;
-                        logger.Debug($"Registered PostCap command '{a.Command}' from '{m.DeclaringType.FullName}'");
+                        if (postCapCommands.ContainsKey(a.Command))
+                            logger.Warn($"PostCap command '{a.Command}' already exists! Overwriting!");
+
+                        var d = Delegate.CreateDelegate(typeof(IrcCommandHandler), commandHandler, m) as IrcCommandHandler;
+                        if (d != null)
+                        {
+                            postCapCommands[a.Command] = d;
+                            logger.Debug($"Registered PostCap command '{a.Command}' from '{m.DeclaringType.FullName}'");
+                        }
                     }
                 }
             }
