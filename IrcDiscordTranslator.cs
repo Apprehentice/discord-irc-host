@@ -2567,7 +2567,9 @@ namespace DiscordIrcBridge
                         }
 
                         body = await parseIrcMentions(body);
-                        await chan.SendMessageAsync(body.Substring(0, Math.Min(body.Length, 2000)), embed: currentEmbeds[chanId].Build());
+                        if (!string.IsNullOrWhiteSpace(body))
+                            body = body.Substring(0, Math.Min(body.Length, 2000));
+                        await chan.SendMessageAsync(body, embed: currentEmbeds[chanId].Build());
 
                         server.EnqueueMessage($":{nick} PRIVMSG {message.Params[0]} :{body}");
                         currentEmbeds.Remove(chanId);
