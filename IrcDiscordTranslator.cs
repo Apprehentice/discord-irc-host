@@ -2552,15 +2552,14 @@ namespace DiscordIrcBridge
                             return;
                         }
 
-                        var msgStr = message.Params[1];
                         var actionMatch = Regex.Match(message.Params[1], @"^ACTION (?<content>.*)$");
                         if (actionMatch.Success)
                         {
-                            msgStr = "_" + actionMatch.Groups["content"].Value + "_";
+                            body = "_" + actionMatch.Groups["content"].Value + "_";
                         }
 
-                        msgStr = await parseIrcMentions(msgStr);
-                        await chan.SendMessageAsync(msgStr.Substring(0, Math.Min(msgStr.Length, 2000)));
+                        body = await parseIrcMentions(body);
+                        await chan.SendMessageAsync(body.Substring(0, Math.Min(body.Length, 2000)), embed: currentEmbeds[chanId].Build());
 
                         server.EnqueueMessage($":{nick} PRIVMSG {message.Params[0]} :{body}");
                         currentEmbeds.Remove(chanId);
