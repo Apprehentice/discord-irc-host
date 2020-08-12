@@ -1144,7 +1144,15 @@ namespace DiscordIrcBridge
                     return;
 
                 var msgStr = await parseIrcMentions(message.Params[1]);
-                await target.SendMessageAsync(msgStr.Substring(0, Math.Min(msgStr.Length, 2000)));
+
+                try
+                {
+                    await target.SendMessageAsync(msgStr.Substring(0, Math.Min(msgStr.Length, 2000)));
+                }
+                catch (Discord.Net.HttpException e)
+                {
+                    logger.Warn($"Send Message Failed: [{e.GetType().FullName}] {e.Message}");
+                }
             }
         }
 
