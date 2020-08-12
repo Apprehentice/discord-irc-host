@@ -2756,6 +2756,9 @@ namespace DiscordIrcBridge
 
         private async Task<string> parseIrcMentions(string input)
         {
+            if (string.IsNullOrWhiteSpace(input))
+                return input;
+
             if (config.AtMentions)
             {
                 input = Regex.Replace(input, @"(?<![\w])@(?!@)(?<nick>[^\s:$%,.;!?]+)", m =>
