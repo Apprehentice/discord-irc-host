@@ -135,6 +135,7 @@ namespace DiscordIrcBridge
             timeoutTimer.Start();
 
             running = true;
+            int queueLock = 0;
             using (var stream = client.GetStream())
             {
                 byte[] buffer = new byte[4096];
@@ -160,7 +161,7 @@ namespace DiscordIrcBridge
                     }
 
                     var outMsgCount = 0;
-                    while (messageQueue.Count > 0 && outMsgCount <= config.OutgoingMessageLimit)
+                    while (queueLock <= 0 && messageQueue.Count > 0 && outMsgCount <= config.OutgoingMessageLimit)
                     {
                         try
                         {
@@ -176,6 +177,9 @@ namespace DiscordIrcBridge
                             Stop();
                         }
                         outMsgCount++;
+
+                        if (outMsgCount >= config.OutgoingMessageLimit)
+                            queueLock = config.QueueLockTime / config.ThreadDelay;
                     }
 
                     while (stream.DataAvailable)
@@ -231,7 +235,8 @@ namespace DiscordIrcBridge
                         }
                     }
 
-                    Thread.Sleep(25);
+                    Thread.Sleep(config.ThreadDelay);
+                    queueLock = Math.Max(0, queueLock - config.ThreadDelay);
                 }
 
                 logger.Info("Message loop ended. Shutting down.");

@@ -15,5 +15,7 @@ namespace DiscordIrcBridge
         public bool PreserveBans = true;
         public int NamesPerEntry = 20;
         public int ClientTimeout = 300;
+        public int ThreadDelay = 25;
+        public int QueueLockTime = 1000;
     }
 }
