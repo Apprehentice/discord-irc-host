@@ -480,7 +480,17 @@ namespace DiscordIrcBridge
                     }
 
                     if (!newGuildUser.GetPermissions(chan).ViewChannel)
-                        server.EnqueueMessage($":{getNickById(newGuildUser.Id)}!{newGuildUser.Id}@discord.com PART #{chan.GetIrcSafeName()} :Permissions changed");
+                    {
+                        server.EnqueueMessage($":{getNickById(newGuildUser.Id)}!{newGuildUser.Id}@discord.com PART {prefix}{chan.GetIrcSafeName()} :Permissions changed");
+                    }
+                    else if (!config.ShowOfflineUsers && oldGuildUser.Status != newGuildUser.Status && newGuildUser.Status == UserStatus.Offline)
+                    {
+                        server.EnqueueMessage($"{(newGuildUser.IsBot ? "@discord.com/bot " : "")}:{getNickById(newGuildUser.Id)}!{newGuildUser.Id}@discord.com PART {prefix}{chan.GetIrcSafeName()} :Offline");
+                    }
+                    else if (!config.ShowOfflineUsers && oldGuildUser.Status != newGuildUser.Status && oldGuildUser.Status == UserStatus.Online)
+                    {
+                        server.EnqueueMessage($"{(newGuildUser.IsBot ? "@discord.com/bot " : "")}:{getNickById(newGuildUser.Id)}!{newGuildUser.Id}@discord.com JOIN {prefix}{chan.GetIrcSafeName()}");
+                    }
                 }
             }
 
@@ -2633,6 +2643,11 @@ namespace DiscordIrcBridge
                 {
                     foreach (var u in ul)
                     {
+                        if (!config.ShowOfflineUsers && u.Status == UserStatus.Offline)
+                        {
+                            continue;
+                        }
+
                         prefix = "";
                         if (u.Id == guild.OwnerId)
                         {

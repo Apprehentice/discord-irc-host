@@ -17,5 +17,6 @@ namespace DiscordIrcBridge
         public int ClientTimeout = 300;
         public int ThreadDelay = 25;
         public int QueueLockTime = 1000;
+        public bool ShowOfflineUsers = false;
     }
 }
