@@ -2201,7 +2201,7 @@ namespace DiscordIrcBridge
                     foreach (var chan in joinedChannels)
                     {
                         var guildChan = await guild.GetChannelAsync(chan.Key);
-                        if (!u.GetPermissions(guildChan).Has(ChannelPermission.ReadMessages))
+                        if (!u.GetPermissions(guildChan).Has(ChannelPermission.ViewChannel))
                             continue;
 
                         string prefix = "";
@@ -2274,7 +2274,7 @@ namespace DiscordIrcBridge
                 foreach (var chan in joinedChannels)
                 {
                     var guildChan = await guild.GetChannelAsync(chan.Key);
-                    if (!u.GetPermissions(guildChan).Has(ChannelPermission.ReadMessages))
+                    if (!u.GetPermissions(guildChan).Has(ChannelPermission.ViewChannel))
                         continue;
 
                     string prefix = "";
