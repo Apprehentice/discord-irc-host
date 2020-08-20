@@ -487,7 +487,7 @@ namespace DiscordIrcBridge
                     {
                         server.EnqueueMessage($"{(newGuildUser.IsBot ? "@discord.com/bot " : "")}:{getNickById(newGuildUser.Id)}!{newGuildUser.Id}@discord.com PART {prefix}{chan.GetIrcSafeName()} :Offline");
                     }
-                    else if (!config.ShowOfflineUsers && oldGuildUser.Status != newGuildUser.Status && oldGuildUser.Status == UserStatus.Online)
+                    else if (!config.ShowOfflineUsers && oldGuildUser.Status != newGuildUser.Status && oldGuildUser.Status != UserStatus.Offline)
                     {
                         server.EnqueueMessage($"{(newGuildUser.IsBot ? "@discord.com/bot " : "")}:{getNickById(newGuildUser.Id)}!{newGuildUser.Id}@discord.com JOIN {prefix}{chan.GetIrcSafeName()}");
                     }
