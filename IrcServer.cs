@@ -178,8 +178,11 @@ namespace DiscordIrcBridge
                         }
                         outMsgCount++;
 
-                        if (outMsgCount >= config.OutgoingMessageLimit)
+                        if (outMsgCount >= config.OutgoingMessageLimit - 1)
+                        {
                             queueLock = config.QueueLockTime / config.ThreadDelay;
+                            Ping();
+                        }
                     }
 
                     while (stream.DataAvailable)
