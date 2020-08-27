@@ -479,7 +479,7 @@ namespace DiscordIrcBridge
                         }
                     }
 
-                    if (!newGuildUser.GetPermissions(chan).ViewChannel)
+                    if (!newGuildUser.GetPermissions(chan).ViewChannel && !isVoice)
                     {
                         server.EnqueueMessage($":{getNickById(newGuildUser.Id)}!{newGuildUser.Id}@discord.com PART {prefix}{chan.GetIrcSafeName()} :Permissions changed");
                     }
