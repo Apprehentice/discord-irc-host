@@ -21,15 +21,6 @@ namespace DiscordIrcBridge
             return newNick;
         }
 
-        public static string GetIrcSafeName(this IUser user)
-        {
-            var newNick = Regex.Replace(user.Username, @"[\s:$%,.;!?]", "_");
-            if (!Regex.IsMatch(newNick, @"^[a-zA-Z0-9`|^_{}\[\]\\]"))
-                newNick = "_" + newNick;
-
-            return newNick;
-        }
-
         public static string GetIrcSafeName(this IGuildChannel chan)
         {
             return (chan as IVoiceChannel) == null ? chan.Name : chan.Id.ToString();
