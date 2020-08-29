@@ -70,6 +70,8 @@ namespace DiscordIrcBridge
 
             dmMutex = new Mutex(true, token, out handleDms);
 
+            client.Connected += Client_Connected;
+
             client.MessageReceived += Client_MessageReceived;
             client.ChannelUpdated += Client_ChannelUpdated;
             client.RoleUpdated += Client_RoleUpdated;
@@ -90,6 +92,11 @@ namespace DiscordIrcBridge
             client.UserIsTyping += Client_UserIsTyping;
         }
 
+        private async Task Client_Connected()
+        {
+            
+        }
+
         private async Task Client_UserIsTyping(SocketUser user, ISocketMessageChannel channel)
         {
             if (server.CurrentStage != AuthStages.CapsNegotiated)
@@ -99,7 +106,7 @@ namespace DiscordIrcBridge
             if (guildChannel == null)
                 return;
 
-            var nick = getNickById(user.Id);
+            var nick = await getNickById(user.Id);
             server.EnqueueMessage($"@+typing=active :{nick}!{user.Id}@discord.com TAGMSG #{guildChannel.GetIrcSafeName()}");
         }
 
@@ -281,7 +288,7 @@ namespace DiscordIrcBridge
             if (server.CurrentStage != AuthStages.CapsNegotiated)
                 return;
 
-            server.EnqueueMessage($"{(user.IsBot ? "@discord.com/bot " : "")}:{getNickById(user.Id)}!{user.Id}@discord.com QUIT");
+            server.EnqueueMessage($"{(user.IsBot ? "@discord.com/bot " : "")}:{await getNickById(user.Id)}!{user.Id}@discord.com QUIT");
         }
 
         private async Task Client_UserJoined(SocketGuildUser user)
@@ -303,26 +310,26 @@ namespace DiscordIrcBridge
                 if (!user.GetPermissions(chan).ViewChannel)
                     continue;
 
-                server.EnqueueMessage($"{(user.IsBot ? "@discord.com/bot " : "")}:{getNickById(user.Id)}!{user.Id}@discord.com JOIN #{c.Value.IrcName}");
+                server.EnqueueMessage($"{(user.IsBot ? "@discord.com/bot " : "")}:{await getNickById(user.Id)}!{user.Id}@discord.com JOIN #{c.Value.IrcName}");
 
                 if (user.GuildPermissions.Administrator)
                 {
-                    server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} +a {getNickById(user.Id)}");
+                    server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} +a {await getNickById(user.Id)}");
                 }
 
                 if (user.GuildPermissions.ManageChannels)
                 {
-                    server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} +o {getNickById(user.Id)}");
+                    server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} +o {await getNickById(user.Id)}");
                 }
 
                 if (user.GuildPermissions.KickMembers)
                 {
-                    server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} +h {getNickById(user.Id)}");
+                    server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} +h {await getNickById(user.Id)}");
                 }
 
                 if (user.GetPermissions(chan).SendMessages)
                 {
-                    server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} +v {getNickById(user.Id)}");
+                    server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} +v {await getNickById(user.Id)}");
                 }
             }
         }
@@ -423,38 +430,38 @@ namespace DiscordIrcBridge
 
                     if (oldGuildUser.GuildPermissions.Administrator && !newGuildUser.GuildPermissions.Administrator)
                     {
-                        server.EnqueueMessage($":{server.Hostname} MODE {prefix}{chan.GetIrcSafeName()} -a {getNickById(newGuildUser.Id)}");
+                        server.EnqueueMessage($":{server.Hostname} MODE {prefix}{chan.GetIrcSafeName()} -a {await getNickById(newGuildUser.Id)}");
                     }
                     else if (!oldGuildUser.GuildPermissions.Administrator && newGuildUser.GuildPermissions.Administrator)
                     {
-                        server.EnqueueMessage($":{server.Hostname} MODE {prefix}{chan.GetIrcSafeName()} +a {getNickById(newGuildUser.Id)}");
+                        server.EnqueueMessage($":{server.Hostname} MODE {prefix}{chan.GetIrcSafeName()} +a {await getNickById(newGuildUser.Id)}");
                     }
 
                     if (oldGuildUser.GuildPermissions.ManageChannels && !newGuildUser.GuildPermissions.ManageChannels)
                     {
-                        server.EnqueueMessage($":{server.Hostname} MODE {prefix}{chan.GetIrcSafeName()} -o {getNickById(newGuildUser.Id)}");
+                        server.EnqueueMessage($":{server.Hostname} MODE {prefix}{chan.GetIrcSafeName()} -o {await getNickById(newGuildUser.Id)}");
                     }
                     else if (!oldGuildUser.GuildPermissions.ManageChannels && newGuildUser.GuildPermissions.ManageChannels)
                     {
-                        server.EnqueueMessage($":{server.Hostname} MODE {prefix}{chan.GetIrcSafeName()} +o {getNickById(newGuildUser.Id)}");
+                        server.EnqueueMessage($":{server.Hostname} MODE {prefix}{chan.GetIrcSafeName()} +o {await getNickById(newGuildUser.Id)}");
                     }
 
                     if (oldGuildUser.GuildPermissions.KickMembers && !newGuildUser.GuildPermissions.KickMembers)
                     {
-                        server.EnqueueMessage($":{server.Hostname} MODE {prefix}{chan.GetIrcSafeName()} -h {getNickById(newGuildUser.Id)}");
+                        server.EnqueueMessage($":{server.Hostname} MODE {prefix}{chan.GetIrcSafeName()} -h {await getNickById(newGuildUser.Id)}");
                     }
                     else if (!oldGuildUser.GuildPermissions.KickMembers && newGuildUser.GuildPermissions.KickMembers)
                     {
-                        server.EnqueueMessage($":{server.Hostname} MODE {prefix}{chan.GetIrcSafeName()} +h {getNickById(newGuildUser.Id)}");
+                        server.EnqueueMessage($":{server.Hostname} MODE {prefix}{chan.GetIrcSafeName()} +h {await getNickById(newGuildUser.Id)}");
                     }
 
                     if (!isVoice && oldGuildUser.GetPermissions(chan).SendMessages && !newGuildUser.GetPermissions(chan).SendMessages)
                     {
-                        server.EnqueueMessage($":{server.Hostname} MODE {prefix}{chan.GetIrcSafeName()} -v {getNickById(newGuildUser.Id)}");
+                        server.EnqueueMessage($":{server.Hostname} MODE {prefix}{chan.GetIrcSafeName()} -v {await getNickById(newGuildUser.Id)}");
                     }
                     else if (!isVoice && !oldGuildUser.GetPermissions(chan).SendMessages && newGuildUser.GetPermissions(chan).SendMessages)
                     {
-                        server.EnqueueMessage($":{server.Hostname} MODE {prefix}{chan.GetIrcSafeName()} +v {getNickById(newGuildUser.Id)}");
+                        server.EnqueueMessage($":{server.Hostname} MODE {prefix}{chan.GetIrcSafeName()} +v {await getNickById(newGuildUser.Id)}");
                     }
 
                     if (config.BannedRole.HasValue)
@@ -471,15 +478,15 @@ namespace DiscordIrcBridge
 
                     if (!newGuildUser.GetPermissions(chan).ViewChannel && !isVoice)
                     {
-                        server.EnqueueMessage($":{getNickById(newGuildUser.Id)}!{newGuildUser.Id}@discord.com PART {prefix}{chan.GetIrcSafeName()} :Permissions changed");
+                        server.EnqueueMessage($":{await getNickById(newGuildUser.Id)}!{newGuildUser.Id}@discord.com PART {prefix}{chan.GetIrcSafeName()} :Permissions changed");
                     }
                     else if (!config.ShowOfflineUsers && oldGuildUser.Status != newGuildUser.Status && newGuildUser.Status == UserStatus.Offline)
                     {
-                        server.EnqueueMessage($"{(newGuildUser.IsBot ? "@discord.com/bot " : "")}:{getNickById(newGuildUser.Id)}!{newGuildUser.Id}@discord.com PART {prefix}{chan.GetIrcSafeName()} :Offline");
+                        server.EnqueueMessage($"{(newGuildUser.IsBot ? "@discord.com/bot " : "")}:{await getNickById(newGuildUser.Id)}!{newGuildUser.Id}@discord.com PART {prefix}{chan.GetIrcSafeName()} :Offline");
                     }
                     else if (!config.ShowOfflineUsers && oldGuildUser.Status != newGuildUser.Status && oldGuildUser.Status != UserStatus.Offline)
                     {
-                        server.EnqueueMessage($"{(newGuildUser.IsBot ? "@discord.com/bot " : "")}:{getNickById(newGuildUser.Id)}!{newGuildUser.Id}@discord.com JOIN {prefix}{chan.GetIrcSafeName()}");
+                        server.EnqueueMessage($"{(newGuildUser.IsBot ? "@discord.com/bot " : "")}:{await getNickById(newGuildUser.Id)}!{newGuildUser.Id}@discord.com JOIN {prefix}{chan.GetIrcSafeName()}");
                     }
                 }
             }
@@ -523,45 +530,45 @@ namespace DiscordIrcBridge
                         if (oldRole.Permissions.Administrator && !newRole.Permissions.Administrator
                             && !u.GuildPermissions.Administrator)
                         {
-                            server.EnqueueMessage($":{server.Hostname} MODE {chan.GetIrcSafeName()} -a {getNickById(u.Id)}");
+                            server.EnqueueMessage($":{server.Hostname} MODE {chan.GetIrcSafeName()} -a {await getNickById(u.Id)}");
                         }
                         else if (!oldRole.Permissions.Administrator && newRole.Permissions.Administrator
                             && u.GuildPermissions.Administrator)
                         {
-                            server.EnqueueMessage($":{server.Hostname} MODE {chan.GetIrcSafeName()} +a {getNickById(u.Id)}");
+                            server.EnqueueMessage($":{server.Hostname} MODE {chan.GetIrcSafeName()} +a {await getNickById(u.Id)}");
                         }
 
                         if (oldRole.Permissions.ManageChannels && !newRole.Permissions.ManageChannels
                             && !u.GuildPermissions.ManageChannels)
                         {
-                            server.EnqueueMessage($":{server.Hostname} MODE {chan.GetIrcSafeName()} -o {getNickById(u.Id)}");
+                            server.EnqueueMessage($":{server.Hostname} MODE {chan.GetIrcSafeName()} -o {await getNickById(u.Id)}");
                         }
                         else if (!oldRole.Permissions.ManageChannels && newRole.Permissions.ManageChannels
                             && u.GuildPermissions.ManageChannels)
                         {
-                            server.EnqueueMessage($":{server.Hostname} MODE {chan.GetIrcSafeName()} +o {getNickById(u.Id)}");
+                            server.EnqueueMessage($":{server.Hostname} MODE {chan.GetIrcSafeName()} +o {await getNickById(u.Id)}");
                         }
 
                         if (oldRole.Permissions.KickMembers && !newRole.Permissions.KickMembers
                             && !u.GuildPermissions.KickMembers)
                         {
-                            server.EnqueueMessage($":{server.Hostname} MODE {chan.GetIrcSafeName()} -h {getNickById(u.Id)}");
+                            server.EnqueueMessage($":{server.Hostname} MODE {chan.GetIrcSafeName()} -h {await getNickById(u.Id)}");
                         }
                         else if (!oldRole.Permissions.KickMembers && newRole.Permissions.KickMembers
                             && u.GuildPermissions.KickMembers)
                         {
-                            server.EnqueueMessage($":{server.Hostname} MODE {chan.GetIrcSafeName()} +h {getNickById(u.Id)}");
+                            server.EnqueueMessage($":{server.Hostname} MODE {chan.GetIrcSafeName()} +h {await getNickById(u.Id)}");
                         }
 
                         if (oldRole.Permissions.SendMessages && !newRole.Permissions.SendMessages
                             && !u.GetPermissions(chan).SendMessages)
                         {
-                            server.EnqueueMessage($":{server.Hostname} MODE {chan.GetIrcSafeName()} -v {getNickById(u.Id)}");
+                            server.EnqueueMessage($":{server.Hostname} MODE {chan.GetIrcSafeName()} -v {await getNickById(u.Id)}");
                         }
                         else if (!oldRole.Permissions.SendMessages && newRole.Permissions.SendMessages
                             && u.GetPermissions(chan).SendMessages)
                         {
-                            server.EnqueueMessage($":{server.Hostname} MODE {chan.GetIrcSafeName()} +v {getNickById(u.Id)}");
+                            server.EnqueueMessage($":{server.Hostname} MODE {chan.GetIrcSafeName()} +v {await getNickById(u.Id)}");
                         }
                     }
                 }
@@ -622,7 +629,7 @@ namespace DiscordIrcBridge
                 foreach (var j in joined)
                 {
                     var guildUser = j as IGuildUser;
-                    server.EnqueueMessage($":{getNickById(guildUser.Id)}!{guildUser.Id}@discord.com JOIN #{newGuildChannel.GetIrcSafeName()}");
+                    server.EnqueueMessage($":{await getNickById(guildUser.Id)}!{guildUser.Id}@discord.com JOIN #{newGuildChannel.GetIrcSafeName()}");
 
                     var modes = "";
                     if (guildUser.Id == guild.OwnerId)
@@ -652,14 +659,14 @@ namespace DiscordIrcBridge
 
                     if (modes.Length > 0)
                     {
-                        server.EnqueueMessage($":{server.Hostname} MODE #{newGuildChannel.GetIrcSafeName()} +{modes} {getNickById(j.Id)}");
+                        server.EnqueueMessage($":{server.Hostname} MODE #{newGuildChannel.GetIrcSafeName()} +{modes} {await getNickById(j.Id)}");
                     }
                 }
 
                 foreach (var p in parted)
                 {
                     var guildUser = p as IGuildUser;
-                    server.EnqueueMessage($":{getNickById(guildUser.Id)}!{guildUser.Id}@discord.com PART #{newGuildChannel.GetIrcSafeName()} :Permissions changed");
+                    server.EnqueueMessage($":{await getNickById(guildUser.Id)}!{guildUser.Id}@discord.com PART #{newGuildChannel.GetIrcSafeName()} :Permissions changed");
                 }
 
                 foreach (var u in commonUsers)
@@ -669,12 +676,12 @@ namespace DiscordIrcBridge
                     if (guildUser.GetPermissions(newGuildChannel).Has(ChannelPermission.SendMessages)
                         && !guildUser.GetPermissions(oldGuildChannel).Has(ChannelPermission.SendMessages))
                     {
-                        server.EnqueueMessage($":{server.Hostname} MODE #{newGuildChannel.GetIrcSafeName()} +v {getNickById(guildUser.Id)}");
+                        server.EnqueueMessage($":{server.Hostname} MODE #{newGuildChannel.GetIrcSafeName()} +v {await getNickById(guildUser.Id)}");
                     }
                     else if (!guildUser.GetPermissions(newGuildChannel).Has(ChannelPermission.SendMessages)
                         && guildUser.GetPermissions(oldGuildChannel).Has(ChannelPermission.SendMessages))
                     {
-                        server.EnqueueMessage($":{server.Hostname} MODE #{newGuildChannel.GetIrcSafeName()} -v {getNickById(guildUser.Id)}");
+                        server.EnqueueMessage($":{server.Hostname} MODE #{newGuildChannel.GetIrcSafeName()} -v {await getNickById(guildUser.Id)}");
                     }
                 }
 
@@ -1039,22 +1046,22 @@ namespace DiscordIrcBridge
                 var user = await guild.GetUserAsync(client.CurrentUser.Id);
                 if (user.GuildPermissions.Administrator)
                 {
-                    server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} +a {getNickById(user.Id)}");
+                    server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} +a {await getNickById(user.Id)}");
                 }
 
                 if (user.GuildPermissions.ManageChannels)
                 {
-                    server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} +o {getNickById(user.Id)}");
+                    server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} +o {await getNickById(user.Id)}");
                 }
 
                 if (user.GuildPermissions.KickMembers)
                 {
-                    server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} +h {getNickById(user.Id)}");
+                    server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} +h {await getNickById(user.Id)}");
                 }
 
                 if (user.GetPermissions(chan).SendMessages)
                 {
-                    server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} +v {getNickById(user.Id)}");
+                    server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} +v {await getNickById(user.Id)}");
                 }
             }
         }
@@ -2210,7 +2217,7 @@ namespace DiscordIrcBridge
                             prefix += "+";
                         }
 
-                        server.EnqueueMessage($":{server.Hostname} 352 {nick} {chan.Value.IrcName} {u.Id} discord.com discord.com {getNickById(u.Id)} G{prefix} :0 {u.Username}#{u.Discriminator}");
+                        server.EnqueueMessage($":{server.Hostname} 352 {nick} {chan.Value.IrcName} {u.Id} discord.com discord.com {await getNickById(u.Id)} G{prefix} :0 {u.Username}#{u.Discriminator}");
                     }
                 }
                 server.EnqueueMessage($":{server.Hostname} 315 * :End of WHO list");
@@ -2283,7 +2290,7 @@ namespace DiscordIrcBridge
                         prefix += "+";
                     }
 
-                    server.EnqueueMessage($":{server.Hostname} 352 {nick} {chan.Value.IrcName} {u.Id} discord.com discord.com {getNickById(u.Id)} G{prefix} :0 {u.Username}#{u.Discriminator}");
+                    server.EnqueueMessage($":{server.Hostname} 352 {nick} {chan.Value.IrcName} {u.Id} discord.com discord.com {await getNickById(u.Id)} G{prefix} :0 {u.Username}#{u.Discriminator}");
                 }
                 server.EnqueueMessage($":{server.Hostname} 315 {message.Params[0]} :End of WHO list");
             }
