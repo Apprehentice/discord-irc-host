@@ -134,18 +134,8 @@ namespace DiscordIrcBridge
                 target = "#" + newMsg.Channel.Name;
             }
 
-            string userNick;
-            string userUser;
-            if (!newMsg.Author.IsWebhook)
-            {
-                userNick = getNickById(newMsg.Author.Id);
-                userUser = newMsg.Author.Id.ToString();
-            }
-            else
-            {
-                userNick = newMsg.Author.GetIrcSafeName();
-                userUser = "webhook";
-            }
+            string userNick = await getNickById(newMsg.Author.Id);
+            string userUser = newMsg.Author.Id.ToString();
 
             var tagsList = new Dictionary<string, string>();
             if (currentCapabilities.message_tags)
@@ -752,18 +742,8 @@ namespace DiscordIrcBridge
                 target = "#" + message.Channel.Name;
             }
 
-            string userNick;
-            string userUser;
-            if (!message.Author.IsWebhook)
-            {
-                userNick = getNickById(message.Author.Id);
-                userUser = message.Author.Id.ToString();
-            }
-            else
-            {
-                userNick = message.Author.GetIrcSafeName();
-                userUser = "webhook";
-            }
+            string userNick = await getNickById(message.Author.Id);
+            string userUser = message.Author.Id.ToString();
 
             var tagsList = new Dictionary<string, string>();
             if (currentCapabilities.message_tags)
@@ -2734,19 +2714,29 @@ namespace DiscordIrcBridge
             return null;
         }
 
-        private string getNickById(ulong id)
+        private async Task<string> getNickById(ulong id)
         {
             var userQuery = nickLookupDict.Where(kv => kv.Value == id);
 
             if (userQuery.Any())
                 return userQuery.First().Key;
 
-            IUser user = client.GetUser(id);
+            IGuildUser user = await guild.GetUserAsync(id);
             if (user == null)
             {
-                user = restClient.GetUserAsync(id).GetAwaiter().GetResult();
+                user = await (await restClient.GetGuildAsync(guild.Id)).GetUserAsync(id);
                 if (user == null)
-                    return $"user_{id}";
+                {
+                    var plainUser = client.GetUser(id);
+                    if (plainUser == null)
+                    {
+                        return $"user_{id}";
+                    }
+                    else
+                    {
+                        return $"{plainUser.Username}|{plainUser.Discriminator}";
+                    }
+                }
             }
 
             string discriminator = "";
@@ -2791,7 +2781,7 @@ namespace DiscordIrcBridge
             {
                 foreach (var ul in await guild.GetUsersAsync())
                 {
-                    var nick = getNickById(ul.Id);
+                    var nick = await getNickById(ul.Id);
                     input = Regex.Replace(input, @$"\b(?<![/\\%&]){Regex.Escape(nick)}\b", $@"<@{ul.Id}>");
                 }
             }
@@ -2817,7 +2807,7 @@ namespace DiscordIrcBridge
                 {
                     if (ulong.TryParse(m.Groups["id"].Value, out ulong id))
                     {
-                        return getNickById(id);
+                        return getNickById(id).GetAwaiter().GetResult();
                     }
                     return m.Value;
                 });
