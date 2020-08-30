@@ -1135,7 +1135,7 @@ namespace DiscordIrcBridge
 
                 try
                 {
-                    await chan.SendMessageAsync(msgStr.Substring(0, Math.Min(msgStr.Length, 2000)));
+                    var sentMsg = await chan.SendMessageAsync(msgStr.Substring(0, Math.Min(msgStr.Length, 2000)));
                     if (message.Tags.ContainsKey("+discord.com/callback"))
                     {
                         server.EnqueueMessage($"@+reply={sentMsg.Id};+discord.com/callback={message.Tags["+discord.com/token"]} :{server.Hostname} TAGMSG {message.Params[0]}");
