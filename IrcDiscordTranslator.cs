@@ -1132,7 +1132,19 @@ namespace DiscordIrcBridge
                 }
 
                 msgStr = await parseIrcMentions(msgStr);
-                await chan.SendMessageAsync(msgStr.Substring(0, Math.Min(msgStr.Length, 2000)));
+
+                try
+                {
+                    await chan.SendMessageAsync(msgStr.Substring(0, Math.Min(msgStr.Length, 2000)));
+                    if (message.Tags.ContainsKey("+discord.com/callback"))
+                    {
+                        server.EnqueueMessage($"@+reply={sentMsg.Id};+discord.com/callback={message.Tags["+discord.com/token"]} :{server.Hostname} TAGMSG {message.Params[0]}");
+                    }
+                }
+                catch (HttpException e)
+                {
+                    logger.Warn($"Send Message Failed: [{e.GetType().FullName}] {e.Message}");
+                }
             }
             else
             {
