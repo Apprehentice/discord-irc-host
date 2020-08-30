@@ -1144,9 +1144,13 @@ namespace DiscordIrcBridge
 
                 try
                 {
-                    await target.SendMessageAsync(msgStr.Substring(0, Math.Min(msgStr.Length, 2000)));
+                    var sentMsg = await target.SendMessageAsync(msgStr.Substring(0, Math.Min(msgStr.Length, 2000)));
+                    if (message.Tags.ContainsKey("+discord.com/callback"))
+                    {
+                        server.EnqueueMessage($"@+reply={sentMsg.Id};+discord.com/callback={message.Tags["+discord.com/token"]} :{server.Hostname} TAGMSG {message.Params[0]}");
+                    }
                 }
-                catch (Discord.Net.HttpException e)
+                catch (HttpException e)
                 {
                     logger.Warn($"Send Message Failed: [{e.GetType().FullName}] {e.Message}");
                 }
@@ -2332,6 +2336,7 @@ namespace DiscordIrcBridge
 
             var chanId = joinedChannels.Where(c => c.Value.IrcName == message.Params[0].Substring(1)).First().Key;
             var chan = await guild.GetTextChannelAsync(chanId);
+            var callback = "";
 
             switch (message.Params[1])
             {
@@ -2544,6 +2549,15 @@ namespace DiscordIrcBridge
 
                     currentEmbeds[chanId].AddField(inlineField, inlineValue, true);
                     break;
+                case "CALLBACK":
+                    if (message.Params.Count < 3)
+                    {
+                        server.EnqueueMessage($":{server.Hostname} FAIL EMBED EMBED_FAIL {message.Params[0]} {message.Params[1]} :Not enough parameters");
+                        return;
+                    }
+
+                    callback = tagEscape(message.Params[2]);
+                    break;
                 case "END":
                     if (currentEmbeds.ContainsKey(chanId))
                     {
@@ -2566,9 +2580,15 @@ namespace DiscordIrcBridge
                         body = await parseIrcMentions(body);
                         if (!string.IsNullOrWhiteSpace(body))
                             body = body.Substring(0, Math.Min(body.Length, 2000));
-                        await chan.SendMessageAsync(body, embed: currentEmbeds[chanId].Build());
+                        var sentMsg = await chan.SendMessageAsync(body, embed: currentEmbeds[chanId].Build());
 
-                        server.EnqueueMessage($":{nick} PRIVMSG {message.Params[0]} :{body}");
+                        server.EnqueueMessage($"@msgid={sentMsg.Id} :{nick} PRIVMSG {message.Params[0]} :{body}");
+
+                        if (!string.IsNullOrWhiteSpace(callback))
+                        {
+                            server.EnqueueMessage($"@+reply={sentMsg.Id};+discord.com/callback={callback} :{server.Hostname} TAGMSG {chan.GetIrcSafeName()}");
+                        }
+
                         currentEmbeds.Remove(chanId);
                     }
                     break;
