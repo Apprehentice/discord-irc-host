@@ -49,6 +49,7 @@ namespace DiscordIrcBridge
         private Capabilities currentCapabilities = new Capabilities();
 
         private Dictionary<ulong, EmbedBuilder> currentEmbeds = new Dictionary<ulong, EmbedBuilder>();
+        private Dictionary<ulong, string> embedCallbacks = new Dictionary<ulong, string>();
 
         private List<ulong> bans = new List<ulong>();
 
@@ -1138,7 +1139,7 @@ namespace DiscordIrcBridge
                     var sentMsg = await chan.SendMessageAsync(msgStr.Substring(0, Math.Min(msgStr.Length, 2000)));
                     if (message.Tags.ContainsKey("+discord.com/callback"))
                     {
-                        server.EnqueueMessage($"@+reply={sentMsg.Id};+discord.com/callback={message.Tags["+discord.com/token"]} :{server.Hostname} TAGMSG {message.Params[0]}");
+                        server.EnqueueMessage($"@+reply={sentMsg.Id};+discord.com/callback={message.Tags["+discord.com/callback"]} :{server.Hostname} TAGMSG {message.Params[0]}");
                     }
                 }
                 catch (HttpException e)
@@ -1159,7 +1160,7 @@ namespace DiscordIrcBridge
                     var sentMsg = await target.SendMessageAsync(msgStr.Substring(0, Math.Min(msgStr.Length, 2000)));
                     if (message.Tags.ContainsKey("+discord.com/callback"))
                     {
-                        server.EnqueueMessage($"@+reply={sentMsg.Id};+discord.com/callback={message.Tags["+discord.com/token"]} :{server.Hostname} TAGMSG {message.Params[0]}");
+                        server.EnqueueMessage($"@+reply={sentMsg.Id};+discord.com/callback={message.Tags["+discord.com/callback"]} :{server.Hostname} TAGMSG {message.Params[0]}");
                     }
                 }
                 catch (HttpException e)
@@ -2348,7 +2349,6 @@ namespace DiscordIrcBridge
 
             var chanId = joinedChannels.Where(c => c.Value.IrcName == message.Params[0].Substring(1)).First().Key;
             var chan = await guild.GetTextChannelAsync(chanId);
-            var callback = "";
 
             switch (message.Params[1])
             {
@@ -2568,7 +2568,7 @@ namespace DiscordIrcBridge
                         return;
                     }
 
-                    callback = tagEscape(message.Params[2]);
+                    embedCallbacks[chanId] = tagEscape(message.Params[2]);
                     break;
                 case "END":
                     if (currentEmbeds.ContainsKey(chanId))
@@ -2595,6 +2595,8 @@ namespace DiscordIrcBridge
                         var sentMsg = await chan.SendMessageAsync(body, embed: currentEmbeds[chanId].Build());
 
                         server.EnqueueMessage($"@msgid={sentMsg.Id} :{nick} PRIVMSG {message.Params[0]} :{body}");
+
+                        string callback = embedCallbacks.ContainsKey(chanId) ? embedCallbacks[chanId] : "";
 
                         if (!string.IsNullOrWhiteSpace(callback))
                         {
