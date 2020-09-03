@@ -66,12 +66,40 @@ namespace DiscordIrcBridge
             this.config = config;
 
             var token = File.ReadAllText("./token.txt");
+            if (File.Exists("./bans.json"))
+            {
+                try
+                {
+                    bans = JsonConvert.DeserializeObject<List<ulong>>(File.ReadAllText("./bams.json"));
+                }
+                catch (IOException e)
+                {
+                    logger.Error($"IO exception while reading bans.json: {e.Message}");
+                    bans = new List<ulong>();
+                }
+                catch (JsonException e)
+                {
+                    logger.Error($"JSON exception while reading bans.json: {e.Message}");
+                    logger.Error("Moving bans list to bans.json.bak");
+                    try
+                    {
+                        File.WriteAllText("./bans.json.bak", File.ReadAllText("./bans.json"));
+                        File.WriteAllText("./bans.json", "[]");
+                    }
+                    catch (IOException f)
+                    {
+                        logger.Fatal($"IO exception while writing bans file: {f.Message}");
+                        logger.Fatal("Shutting down...");
+                        server.Stop();
+                    }
+                    bans = new List<ulong>();
+                }
+            }
+
             restClient = new DiscordRestClient();
             restClient.LoginAsync(TokenType.Bot, token);
 
             dmMutex = new Mutex(true, token, out handleDms);
-
-            client.Connected += Client_Connected;
 
             client.MessageReceived += Client_MessageReceived;
             client.ChannelUpdated += Client_ChannelUpdated;
@@ -91,11 +119,6 @@ namespace DiscordIrcBridge
             client.MessageUpdated += Client_MessageUpdated;
 
             client.UserIsTyping += Client_UserIsTyping;
-        }
-
-        private async Task Client_Connected()
-        {
-            
         }
 
         private async Task Client_UserIsTyping(SocketUser user, ISocketMessageChannel channel)
