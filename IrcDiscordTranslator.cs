@@ -2573,7 +2573,7 @@ namespace DiscordIrcBridge
                     }
 
                     var inlineSplit = message.Params[2].Split('=');
-                    if (inlineSplit.Length < 2)
+                    if (inlineSplit.Length < 2 || string.IsNullOrEmpty(inlineSplit[0]) || string.IsNullOrEmpty(inlineSplit[1]))
                     {
                         server.EnqueueMessage($":{server.Hostname} FAIL EMBED EMBED_FAIL {message.Params[0]} {message.Params[1]} :Invalid parameters");
                         return;
