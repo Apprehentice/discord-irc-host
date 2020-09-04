@@ -2573,7 +2573,7 @@ namespace DiscordIrcBridge
                     }
 
                     if (!message.Params[2].Contains('=')
-                        || message.Params[2].Length < message.Params[2].IndexOf('='))
+                        || message.Params[2].Length <= message.Params[2].IndexOf('='))
                     {
                         server.EnqueueMessage($":{server.Hostname} FAIL EMBED EMBED_FAIL {message.Params[0]} {message.Params[1]} :Invalid parameters");
                         return;
