@@ -2623,7 +2623,7 @@ namespace DiscordIrcBridge
 
                         if (!string.IsNullOrWhiteSpace(callback))
                         {
-                            server.EnqueueMessage($"@+reply={sentMsg.Id};+discord.com/callback={callback} :{server.Hostname} TAGMSG {chan.GetIrcSafeName()}");
+                            server.EnqueueMessage($"@+reply={sentMsg.Id};+discord.com/callback={callback} :{server.Hostname} TAGMSG {message.Params[0]}");
                         }
 
                         currentEmbeds.Remove(chanId);
