@@ -2572,15 +2572,15 @@ namespace DiscordIrcBridge
                         currentEmbeds[chanId] = new EmbedBuilder();
                     }
 
-                    if (!message.Params[2].Contains('=')
-                        || message.Params[2].Length <= message.Params[2].IndexOf('='))
+                    var inlineSplit = message.Params[2].Split('=');
+                    if (inlineSplit.Length < 2)
                     {
                         server.EnqueueMessage($":{server.Hostname} FAIL EMBED EMBED_FAIL {message.Params[0]} {message.Params[1]} :Invalid parameters");
                         return;
                     }
 
-                    var inlineField = message.Params[2].Substring(0, message.Params[2].IndexOf('='));
-                    var inlineValue = message.Params[2].Substring(message.Params[2].IndexOf('=') + 1);
+                    var inlineField = inlineSplit[0];
+                    var inlineValue = inlineSplit[1];
 
                     currentEmbeds[chanId].AddField(inlineField, inlineValue, true);
                     break;
