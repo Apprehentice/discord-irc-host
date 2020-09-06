@@ -373,17 +373,17 @@ namespace DiscordIrcBridge
                 if ((oldState.IsMuted || oldState.IsSelfMuted)
                     && (!newState.IsMuted && !newState.IsSelfMuted))
                 {
-                    server.EnqueueMessage($":{server.Hostname} MODE &{newState.VoiceChannel.Id} +v {guildUser.GetIrcSafeName()}");
+                    server.EnqueueMessage($":{server.Hostname} MODE &{newState.VoiceChannel.Id} +v {await getNickById(guildUser.Id)}");
                 }
                 else if ((!oldState.IsMuted && !oldState.IsSelfMuted)
                     && (newState.IsMuted || newState.IsSelfMuted))
                 {
-                    server.EnqueueMessage($":{server.Hostname} MODE &{newState.VoiceChannel.Id} -v {guildUser.GetIrcSafeName()}");
+                    server.EnqueueMessage($":{server.Hostname} MODE &{newState.VoiceChannel.Id} -v {await getNickById(guildUser.Id)}");
                 }
 
                 if (currentCapabilities.message_tags)
                 {
-                    server.EnqueueMessage($"@discord.com/voice-state;{(guildUser.IsBot ? "discord.com/bot;" : "")}{(newState.IsMuted ? "discord.com/muted;" : "")}{(newState.IsSelfMuted ? "discord.com/self-muted;" : "")}{(newState.IsDeafened ? "discord.com/deafened;" : "")}{(newState.IsSelfDeafened ? "discord.com/self-deafened;" : "")}{(newState.IsStreaming ? "discord.com/streaming;" : "")} :{guildUser.GetIrcSafeName()}!{guildUser.Id}@discord.com TAGMSG &{newState.VoiceChannel.Id}");
+                    server.EnqueueMessage($"@discord.com/user={guildUser.Id};discord.com/voice-state;{(guildUser.IsBot ? "discord.com/bot;" : "")}{(newState.IsMuted ? "discord.com/muted;" : "")}{(newState.IsSelfMuted ? "discord.com/self-muted;" : "")}{(newState.IsDeafened ? "discord.com/deafened;" : "")}{(newState.IsSelfDeafened ? "discord.com/self-deafened;" : "")}{(newState.IsStreaming ? "discord.com/streaming;" : "")} :{await getNickById(guildUser.Id)}!{guildUser.Id}@discord.com TAGMSG &{newState.VoiceChannel.Id}");
                 }
             }
 
@@ -391,17 +391,17 @@ namespace DiscordIrcBridge
             {
                 if (oldState.VoiceChannel != null && joinedChannels.ContainsKey(oldState.VoiceChannel.Id))
                 {
-                    server.EnqueueMessage($"{(guildUser.IsBot ? "@discord.com/bot " : "")}:{guildUser.GetIrcSafeName()}!{guildUser.Id}@discord.com PART &{oldState.VoiceChannel.Id} :Disconnected");
+                    server.EnqueueMessage($"@{(guildUser.IsBot ? "discord.com/bot;" : "")}discord.com/user={guildUser.Id} :{await getNickById(guildUser.Id)}!{guildUser.Id}@discord.com PART &{oldState.VoiceChannel.Id} :Disconnected");
                 }
 
                 if (newState.VoiceChannel != null
                     && joinedChannels.ContainsKey(newState.VoiceChannel.Id))
                 {
-                    server.EnqueueMessage($":{guildUser.GetIrcSafeName()}!{guildUser.Id}@discord.com JOIN &{newState.VoiceChannel.Id}");
+                    server.EnqueueMessage($"@{(guildUser.IsBot ? "discord.com/bot;" : "")}discord.com/user={guildUser.Id} :{await getNickById(guildUser.Id)}!{guildUser.Id}@discord.com JOIN &{newState.VoiceChannel.Id}");
                     if (guildUser.GetPermissions(newState.VoiceChannel).Speak
                         && !newState.IsMuted && !newState.IsSelfMuted)
                     {
-                        server.EnqueueMessage($":{server.Hostname} MODE &{newState.VoiceChannel.Id} +v {guildUser.GetIrcSafeName()}");
+                        server.EnqueueMessage($":{server.Hostname} MODE &{newState.VoiceChannel.Id} +v {await getNickById(guildUser.Id)}");
                     }
                 }
             }
@@ -502,15 +502,15 @@ namespace DiscordIrcBridge
 
                     if (!newGuildUser.GetPermissions(chan).ViewChannel && !isVoice)
                     {
-                        server.EnqueueMessage($":{await getNickById(newGuildUser.Id)}!{newGuildUser.Id}@discord.com PART {prefix}{chan.GetIrcSafeName()} :Permissions changed");
+                        server.EnqueueMessage($"@{(newGuildUser.IsBot ? "discord.com/bot;" : "")}discord.com/user={newGuildUser.Id} :{await getNickById(newGuildUser.Id)}!{newGuildUser.Id}@discord.com PART {prefix}{chan.GetIrcSafeName()} :Permissions changed");
                     }
                     else if (!config.ShowOfflineUsers && oldGuildUser.Status != newGuildUser.Status && newGuildUser.Status == UserStatus.Offline)
                     {
-                        server.EnqueueMessage($"{(newGuildUser.IsBot ? "@discord.com/bot " : "")}:{await getNickById(newGuildUser.Id)}!{newGuildUser.Id}@discord.com PART {prefix}{chan.GetIrcSafeName()} :Offline");
+                        server.EnqueueMessage($"{(newGuildUser.IsBot ? "@discord.com/bot;" : "")}discord.com/user={newGuildUser.Id} :{await getNickById(newGuildUser.Id)}!{newGuildUser.Id}@discord.com PART {prefix}{chan.GetIrcSafeName()} :Offline");
                     }
                     else if (!config.ShowOfflineUsers && oldGuildUser.Status != newGuildUser.Status && oldGuildUser.Status != UserStatus.Offline)
                     {
-                        server.EnqueueMessage($"{(newGuildUser.IsBot ? "@discord.com/bot " : "")}:{await getNickById(newGuildUser.Id)}!{newGuildUser.Id}@discord.com JOIN {prefix}{chan.GetIrcSafeName()}");
+                        server.EnqueueMessage($"{(newGuildUser.IsBot ? "@discord.com/bot;" : "")}discord.com/user={newGuildUser.Id} :{await getNickById(newGuildUser.Id)}!{newGuildUser.Id}@discord.com JOIN {prefix}{chan.GetIrcSafeName()}");
                     }
                 }
             }
@@ -653,7 +653,7 @@ namespace DiscordIrcBridge
                 foreach (var j in joined)
                 {
                     var guildUser = j as IGuildUser;
-                    server.EnqueueMessage($":{await getNickById(guildUser.Id)}!{guildUser.Id}@discord.com JOIN #{newGuildChannel.GetIrcSafeName()}");
+                    server.EnqueueMessage($"@{(guildUser.IsBot ? "discord.com/bot;" : "")}discord.com/user={guildUser.Id} :{await getNickById(guildUser.Id)}!{guildUser.Id}@discord.com JOIN #{newGuildChannel.GetIrcSafeName()}");
 
                     var modes = "";
                     if (guildUser.Id == guild.OwnerId)
@@ -690,7 +690,7 @@ namespace DiscordIrcBridge
                 foreach (var p in parted)
                 {
                     var guildUser = p as IGuildUser;
-                    server.EnqueueMessage($":{await getNickById(guildUser.Id)}!{guildUser.Id}@discord.com PART #{newGuildChannel.GetIrcSafeName()} :Permissions changed");
+                    server.EnqueueMessage($"@{(guildUser.IsBot ? "discord.com/bot;" : "")}discord.com/user={guildUser.Id} :{await getNickById(guildUser.Id)}!{guildUser.Id}@discord.com PART #{newGuildChannel.GetIrcSafeName()} :Permissions changed");
                 }
 
                 foreach (var u in commonUsers)
