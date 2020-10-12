@@ -312,6 +312,12 @@ namespace DiscordIrcBridge
             if (server.CurrentStage != AuthStages.CapsNegotiated)
                 return;
 
+            if (user.Guild.Id != guild.Id)
+            {
+                logger.Warn($"Received User Leave message for wrong guild: {user.Username}#{user.Discriminator}/{user.Id} on {user.Guild.Id}");
+                return;
+            }
+
             server.EnqueueMessage($"{(user.IsBot ? "@discord.com/bot " : "")}:{await getNickById(user.Id)}!{user.Id}@discord.com QUIT");
         }
 
@@ -319,6 +325,12 @@ namespace DiscordIrcBridge
         {
             if (server.CurrentStage != AuthStages.CapsNegotiated)
                 return;
+
+            if (user.Guild.Id != guild.Id)
+            {
+                logger.Warn($"Received User Join message for wrong guild: {user.Username}#{user.Discriminator}/{user.Id} on {user.Guild.Id}");
+                return;
+            }
 
             if (bans.Contains(user.Id) && config.BannedRole.HasValue)
             {
@@ -411,6 +423,12 @@ namespace DiscordIrcBridge
         {
             if (server.CurrentStage != AuthStages.CapsNegotiated)
                 return;
+
+            if (newGuildUser.Guild.Id != guild.Id)
+            {
+                logger.Warn($"Received Guild Member Update message for wrong guild: {newGuildUser.Username}#{newGuildUser.Discriminator}/{newGuildUser.Id} on {newGuildUser.Guild.Id}");
+                return;
+            }
 
             if (oldGuildUser.Roles.Count != newGuildUser.Roles.Count)
             {
@@ -541,6 +559,12 @@ namespace DiscordIrcBridge
             if (server.CurrentStage != AuthStages.CapsNegotiated)
                 return;
 
+            if (newRole.Guild.Id != guild.Id)
+            {
+                logger.Warn($"Received Role Update message for wrong guild: {newRole.Name}/{newRole.Id} on {newRole.Guild.Id}");
+                return;
+            }
+
             foreach (var c in joinedChannels)
             {
                 var chan = await guild.GetTextChannelAsync(c.Value.Id);
@@ -608,6 +632,12 @@ namespace DiscordIrcBridge
             var newGuildChannel = newChannel as IGuildChannel;
             if (newGuildChannel == null)
                 return;
+
+            if (newGuildChannel.Guild.Id != guild.Id)
+            {
+                logger.Warn($"Received Channel Update message for wrong guild: #{newGuildChannel.Name}/{newGuildChannel.Id} on {newGuildChannel.Guild.Id}");
+                return;
+            }
 
             if ((newGuildChannel as ITextChannel) != null)
             {
@@ -770,6 +800,12 @@ namespace DiscordIrcBridge
             }
             else
             {
+                if ((message.Channel as IGuildChannel)?.Guild.Id != guild.Id)
+                {
+                    logger.Warn($"Received Message Received message from wrong guild: Message {message.Id} in channel {message.Channel.Id} on {(message.Channel as IGuildChannel)?.Guild.Id}");
+                    return;
+                }
+
                 target = "#" + message.Channel.Name;
             }
 
@@ -2548,17 +2584,17 @@ namespace DiscordIrcBridge
                         currentEmbeds[chanId] = new EmbedBuilder();
                     }
 
-                    if (!message.Params[2].Contains('=')
-                        || message.Params[2].Length < message.Params[2].IndexOf('='))
+                    var fieldSplit = message.Params[2].Split('=');
+                    if (fieldSplit.Length < 2 || string.IsNullOrWhiteSpace(fieldSplit[0]) || string.IsNullOrWhiteSpace(fieldSplit[1]))
                     {
                         server.EnqueueMessage($":{server.Hostname} FAIL EMBED EMBED_FAIL {message.Params[0]} {message.Params[1]} :Invalid parameters");
                         return;
                     }
 
-                    var field = message.Params[2].Substring(0, message.Params[2].IndexOf('='));
-                    var value = message.Params[2].Substring(message.Params[2].IndexOf('=') + 1);
+                    var fieldKey = fieldSplit[0];
+                    var fieldValue = fieldSplit[1];
 
-                    currentEmbeds[chanId].AddField(field, value, false);
+                    currentEmbeds[chanId].AddField(fieldKey, fieldValue, false);
                     break;
                 case "INLINE":
                     if (message.Params.Count < 3)
@@ -2573,7 +2609,7 @@ namespace DiscordIrcBridge
                     }
 
                     var inlineSplit = message.Params[2].Split('=');
-                    if (inlineSplit.Length < 2 || string.IsNullOrEmpty(inlineSplit[0]) || string.IsNullOrEmpty(inlineSplit[1]))
+                    if (inlineSplit.Length < 2 || string.IsNullOrWhiteSpace(inlineSplit[0]) || string.IsNullOrWhiteSpace(inlineSplit[1]))
                     {
                         server.EnqueueMessage($":{server.Hostname} FAIL EMBED EMBED_FAIL {message.Params[0]} {message.Params[1]} :Invalid parameters");
                         return;
@@ -2813,6 +2849,48 @@ namespace DiscordIrcBridge
             nickLookupDict[user.GetIrcSafeName() + discriminator] = user.Id;
 
             return user.GetIrcSafeName() + discriminator;
+        }
+
+        private async Task<string> getUserTags(ulong id)
+        {
+            var user = client.GetUser(id);
+            var guildUser = await guild.GetUserAsync(id);
+
+            if (user == null)
+                return "";
+
+            var tagsList = new Dictionary<string,string>();
+
+            if (currentCapabilities.message_tags)
+            {
+                if (user.IsBot)
+                    tagsList["discord.com/bot"] = "";
+
+
+                if (guildUser != null)
+                {
+                    foreach (var tag in config.RoleTags)
+                    {
+                        if (!guildUser.RoleIds.Contains(tag.Key))
+                            continue;
+
+                        if (string.IsNullOrWhiteSpace(tag.Value))
+                            continue;
+
+                        tagsList[tagEscape(tag.Value)] = "";
+                    }
+                }
+
+                tagsList["discord.com/user"] = id.ToString();
+            }
+
+            string tags = "";
+            foreach (var tag in tagsList)
+            {
+                var val = string.IsNullOrWhiteSpace(tag.Value) ? "" : $"={tag.Value}";
+                tags += tagEscape($"{tag.Key}{val}") + ";";
+            }
+            return tags;
         }
 
         private string tagEscape(string input)
