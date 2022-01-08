@@ -70,7 +70,7 @@ namespace DiscordIrcBridge
             {
                 try
                 {
-                    bans = JsonConvert.DeserializeObject<List<ulong>>(File.ReadAllText("./bams.json"));
+                    bans = JsonConvert.DeserializeObject<List<ulong>>(File.ReadAllText("./bans.json"));
                 }
                 catch (IOException e)
                 {
@@ -121,10 +121,13 @@ namespace DiscordIrcBridge
             client.UserIsTyping += Client_UserIsTyping;
         }
 
-        private async Task Client_UserIsTyping(SocketUser user, ISocketMessageChannel channel)
+        private async Task Client_UserIsTyping(Cacheable<IUser, ulong> cachedUser, Cacheable<IMessageChannel, ulong> cachedChannel)
         {
             if (server.CurrentStage != AuthStages.CapsNegotiated)
                 return;
+
+            var user = await cachedUser.GetOrDownloadAsync();
+            var channel = await cachedChannel.GetOrDownloadAsync();
 
             var guildChannel = channel as IGuildChannel;
             if (guildChannel == null)
@@ -223,7 +226,7 @@ namespace DiscordIrcBridge
             }
         }
 
-        private async Task Client_MessageDeleted(Cacheable<IMessage, ulong> message, ISocketMessageChannel channel)
+        private async Task Client_MessageDeleted(Cacheable<IMessage, ulong> message, Cacheable<IMessageChannel, ulong> channel)
         {
             if (server.CurrentStage != AuthStages.CapsNegotiated)
                 return;
@@ -235,7 +238,7 @@ namespace DiscordIrcBridge
             server.EnqueueMessage($"@+discord.com/delete={message.Id} :{server.Hostname} TAGMSG #{ircChan.Name}");
         }
 
-        private async Task Client_ReactionRemoved(Cacheable<IUserMessage, ulong> message, ISocketMessageChannel channel, SocketReaction reaction)
+        private async Task Client_ReactionRemoved(Cacheable<IUserMessage, ulong> message, Cacheable<IMessageChannel, ulong> channel, SocketReaction reaction)
         {
             if (server.CurrentStage != AuthStages.CapsNegotiated)
                 return;
@@ -253,7 +256,7 @@ namespace DiscordIrcBridge
             server.EnqueueMessage($"@{(guildUser.IsBot ? "discord.com/bot;" : "")}discord.com/user={guildUser.Id};+reply={message.Id};+discord.com/react-remove={reaction.Emote.Name} :{guildUser.GetIrcSafeName()}!{guildUser.Id}@discord.com TAGMSG #{ircChan.Name}");
         }
 
-        private async Task Client_ReactionAdded(Cacheable<IUserMessage, ulong> message, ISocketMessageChannel channel, SocketReaction reaction)
+        private async Task Client_ReactionAdded(Cacheable<IUserMessage, ulong> message, Cacheable<IMessageChannel, ulong> channel, SocketReaction reaction)
         {
             if (server.CurrentStage != AuthStages.CapsNegotiated)
                 return;
@@ -307,14 +310,14 @@ namespace DiscordIrcBridge
             }
         }
 
-        private async Task Client_UserLeft(SocketGuildUser user)
+        private async Task Client_UserLeft(SocketGuild targetGuild, SocketUser user)
         {
             if (server.CurrentStage != AuthStages.CapsNegotiated)
                 return;
 
-            if (user.Guild.Id != guild.Id)
+            if (targetGuild.Id != guild.Id)
             {
-                logger.Warn($"Received User Leave message for wrong guild: {user.Username}#{user.Discriminator}/{user.Id} on {user.Guild.Id}");
+                logger.Warn($"Received User Leave message for wrong guild: {user.Username}#{user.Discriminator}/{user.Id} on {targetGuild.Id}");
                 return;
             }
 
@@ -419,10 +422,12 @@ namespace DiscordIrcBridge
             }
         }
 
-        private async Task Client_GuildMemberUpdated(SocketGuildUser oldGuildUser, SocketGuildUser newGuildUser)
+        private async Task Client_GuildMemberUpdated(Cacheable<SocketGuildUser, ulong> cachedOldGuildUser, SocketGuildUser newGuildUser)
         {
             if (server.CurrentStage != AuthStages.CapsNegotiated)
                 return;
+
+            var oldGuildUser = await cachedOldGuildUser.GetOrDownloadAsync();
 
             if (newGuildUser.Guild.Id != guild.Id)
             {
@@ -2924,6 +2929,18 @@ namespace DiscordIrcBridge
                 foreach (var ul in await guild.GetUsersAsync())
                 {
                     var nick = await getNickById(ul.Id);
+                    if (string.IsNullOrWhiteSpace(nick))
+                    {
+                        logger.Warn($"Nick is null or whitespace! ID: {ul.Id}; Name: {ul.Username}/{ul.Nickname}");
+                        nick = ul.GetIrcSafeName();
+
+                        if (string.IsNullOrWhiteSpace(nick))
+                        {
+                            logger.Error($"Nick is still null or whitespace! ID: {ul.Id}; Name: {ul.Username}/{ul.Nickname}");
+                            logger.Error("Falling back to ID.");
+                            nick = $"_{ul.Id}";
+                        }
+                    }
                     input = Regex.Replace(input, @$"\b(?<![/\\%&]){Regex.Escape(nick)}\b", $@"<@{ul.Id}>");
                 }
             }
@@ -2935,6 +2952,13 @@ namespace DiscordIrcBridge
                     continue;
 
                 var chanName = ch.GetIrcSafeName();
+                if (string.IsNullOrWhiteSpace(chanName))
+                {
+                    logger.Warn($"Channel Name is null or whitespace! ID: {ch.Id}; Name: {ch.Name}");
+                    logger.Warn("Falling back to ID.");
+                    chanName = ch.Id.ToString();
+                }
+
                 input = Regex.Replace(input, $@"(?<![\w])#(?!#){Regex.Escape(chanName)}\b", @$"<#{ch.Id}>");
             }
 
