@@ -1,10 +1,21 @@
 ﻿using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace DiscordIrcBridge
 {
     public class Config
     {
+        public enum BanModes
+        {
+            Ban,
+            Role,
+            Timeout
+        }
+
         public ulong? BannedRole;
+        public ulong? DefaultTimeoutDuration = 600;
+        [JsonConverter(typeof(JsonStringEnumConverter))]
+        public BanModes BanMode = BanModes.Timeout;
         public bool AtMentions = true;
         public bool ConvertMentionsFromDiscord = true;
         public bool FakeKick = false;

@@ -1303,17 +1303,19 @@ namespace DiscordIrcBridge
                                 case 'b':
                                     if (message.Params.Count >= paramIndex + 1)
                                     {
-                                        if (config.BannedRole.HasValue && !self.GuildPermissions.Has(GuildPermission.ManageRoles)
-                                            || (!config.BannedRole.HasValue && !self.GuildPermissions.Has(GuildPermission.BanMembers)))
+                                        var currentMask = message.Params[paramIndex++];
+                                        var matches = Regex.Match(currentMask, @".*!(?<id>\d+)?@.*");
+                                        ulong.TryParse(matches.Groups["id"].Value, out ulong userId);
+                                        if (matches.Success)
                                         {
-                                            server.EnqueueMessage($":{server.Hostname} 482 {nick} MODE :Insufficient privileges");
-                                        }
-                                        else
-                                        {
-                                            var matches = Regex.Match(message.Params[paramIndex++], @".*!(?<id>\d+)?@.*");
-                                            if (matches.Success)
+                                            if (config.BanMode == Config.BanModes.Role)
                                             {
-                                                ulong.TryParse(matches.Groups["id"].Value, out ulong userId);
+                                                if (!self.GuildPermissions.Has(GuildPermission.ManageRoles))
+                                                {
+                                                    server.EnqueueMessage($":{server.Hostname} 482 {nick} MODE :Insufficient privileges");
+                                                    continue;
+                                                }
+
                                                 if (config.BannedRole.HasValue)
                                                 {
                                                     var role = guild.GetRole(config.BannedRole.Value);
@@ -1326,8 +1328,6 @@ namespace DiscordIrcBridge
                                                             try
                                                             {
                                                                 await user.AddRoleAsync(role);
-                                                                //appliedModes += message.Params[1][i];
-                                                                //appliedParams.Add($"*!{userId}@*");
                                                             }
                                                             catch (HttpException) { }
                                                         }
@@ -1339,16 +1339,46 @@ namespace DiscordIrcBridge
                                                 }
                                                 else
                                                 {
-                                                    var user = await guild.GetUserAsync(userId);
-
-                                                    if (user != null)
-                                                    {
-                                                        appliedModes += message.Params[1][i];
-                                                        appliedParams.Add($"*!{userId}@*");
-                                                        await user.BanAsync();
-                                                    }
+                                                    server.EnqueueMessage($":{server.Hostname} 400 {nick} MODE +b :Could not find ban role");
                                                 }
                                             }
+                                            else if (config.BanMode == Config.BanModes.Timeout)
+                                            {
+                                                logger.Warn("Cannot verify timeout permissions (Not implemented). This is being done blindly!");
+                                                var user = await guild.GetUserAsync(userId);
+
+                                                if (user != null)
+                                                {
+                                                    appliedModes += message.Params[1][i];
+                                                    appliedParams.Add($"*!{userId}@*");
+                                                    await user.SetTimeOutAsync(TimeSpan.FromSeconds(config.DefaultTimeoutDuration ?? 600));
+                                                }
+                                            }
+                                            else if (config.BanMode == Config.BanModes.Ban)
+                                            {
+                                                if (!self.GuildPermissions.Has(GuildPermission.BanMembers))
+                                                {
+                                                    server.EnqueueMessage($":{server.Hostname} 482 {nick} MODE :Insufficient privileges");
+                                                    continue;
+                                                }
+
+                                                var user = await guild.GetUserAsync(userId);
+
+                                                if (user != null)
+                                                {
+                                                    appliedModes += message.Params[1][i];
+                                                    appliedParams.Add($"*!{userId}@*");
+                                                    await user.BanAsync();
+                                                }
+                                            }
+                                            else
+                                            {
+                                                server.EnqueueMessage($":{server.Hostname} 400 {nick} MODE +b :Invalid ban mode");
+                                            }
+                                        }
+                                        else
+                                        {
+                                            server.EnqueueMessage($":{server.Hostname} 415 {nick} {currentMask} :No user ID");
                                         }
                                     }
                                     else
@@ -1432,17 +1462,18 @@ namespace DiscordIrcBridge
                                 case 'b':
                                     if (message.Params.Count >= paramIndex)
                                     {
-                                        if (config.BannedRole.HasValue && !self.GuildPermissions.Has(GuildPermission.ManageRoles)
-                                            || (!config.BannedRole.HasValue && !self.GuildPermissions.Has(GuildPermission.BanMembers)))
+                                        var matches = Regex.Match(message.Params[paramIndex++], @".*!(?<id>\d+)@.*");
+                                        if (matches.Success)
                                         {
-                                            server.EnqueueMessage($":{server.Hostname} 482 {nick} MODE :Insufficient privileges");
-                                        }
-                                        else
-                                        {
-                                            var matches = Regex.Match(message.Params[paramIndex++], @".*!(?<id>\d+)@.*");
-                                            if (matches.Success)
+                                            ulong.TryParse(matches.Groups["id"].Value, out ulong userId);
+                                            if (config.BanMode == Config.BanModes.Role)
                                             {
-                                                ulong.TryParse(matches.Groups["id"].Value, out ulong userId);
+                                                if (!self.GuildPermissions.Has(GuildPermission.ManageRoles))
+                                                {
+                                                    server.EnqueueMessage($":{server.Hostname} 482 {nick} MODE :Insufficient privileges");
+                                                    continue;
+                                                }
+
                                                 if (config.BannedRole.HasValue)
                                                 {
                                                     var role = guild.GetRole(config.BannedRole.Value);
@@ -1455,8 +1486,6 @@ namespace DiscordIrcBridge
                                                             try
                                                             {
                                                                 await user.RemoveRoleAsync(role);
-                                                                //appliedModes += message.Params[1][i];
-                                                                //appliedParams.Add($"*!{userId}@*");
                                                             }
                                                             catch (HttpException) { }
                                                         }
@@ -1468,9 +1497,33 @@ namespace DiscordIrcBridge
                                                 }
                                                 else
                                                 {
-                                                    await guild.RemoveBanAsync(userId);
-                                                    appliedModes += message.Params[1][i];
-                                                    appliedParams.Add($"*!{userId}@*");
+                                                    server.EnqueueMessage($":{server.Hostname} 400 {nick} MODE +b :Could not find ban role");
+                                                }
+                                            }
+                                            else if (config.BanMode == Config.BanModes.Ban)
+                                            {
+                                                if (!self.GuildPermissions.Has(GuildPermission.BanMembers))
+                                                {
+                                                    server.EnqueueMessage($":{server.Hostname} 482 {nick} MODE :Insufficient privileges");
+                                                    continue;
+                                                }
+
+                                                await guild.RemoveBanAsync(userId);
+                                                appliedModes += message.Params[1][i];
+                                                appliedParams.Add($"*!{userId}@*");
+                                            }
+                                            else if (config.BanMode == Config.BanModes.Timeout)
+                                            {
+                                                logger.Warn("Cannot verify timeout permissions (Not implemented). This is being done blindly!");
+                                                var user = await guild.GetUserAsync(userId);
+
+                                                if (user != null)
+                                                {
+                                                    try
+                                                    {
+                                                        await user.RemoveTimeOutAsync();
+                                                    }
+                                                    catch (HttpException) { }
                                                 }
                                             }
                                         }
@@ -1779,6 +1832,47 @@ namespace DiscordIrcBridge
             }
         }
         #endregion
+
+        [IrcCommand("TIMEOUT", preAuth: false, postAuth: false)]
+        public async void TimeoutHandler(IrcMessage message)
+        {
+            if (message.Params.Count < 2)
+            {
+                server.EnqueueMessage($":{server.Hostname} FAIL TIMEOUT TIMEOUT_FAIL * * :Not enough parameters");
+                return;
+            }
+
+            if (!ulong.TryParse(message.Params[0], out ulong userId))
+            {
+                server.EnqueueMessage($":{server.Hostname} FAIL TIMEOUT TIMEOUT_FAIL {message.Params[0]} * :Invalid user ID");
+                return;
+            }
+
+            if (!ulong.TryParse(message.Params[1], out ulong duration))
+            {
+                server.EnqueueMessage($":{server.Hostname} FAIL TIMEOUT TIMEOUT_FAIL {message.Params[1]} * :Invalid duration");
+                return;
+            }
+
+            var guildUser = await guild.GetUserAsync(userId);
+            if (guildUser == null)
+            {
+                server.EnqueueMessage($":{server.Hostname} FAIL TIMEOUT TIMEOUT_FAIL {userId} * :No such user");
+                return;
+            }
+
+            logger.Warn("Cannot verify timeout permissions (Not implemented.) We are doing this blindly!");
+            await guildUser.SetTimeOutAsync(TimeSpan.FromSeconds(duration));
+
+            // TODO When we can respond to timeouts, tell the IRC client about it
+            //if (config.BanMode == Config.BanModes.Timeout)
+            //{
+            //    foreach (var channel in joinedChannels)
+            //    {
+            //        server.EnqueueMessage($":{server.Hostname} MODE {channel.Value.IrcName}: +b *!{userId}@*");
+            //    }
+            //}
+        }
 
         [IrcCommand("USERHOST", preAuth: false, postAuth: false)]
         public async void UserhostHandler(IrcMessage message)
@@ -2234,7 +2328,7 @@ namespace DiscordIrcBridge
 
             if (!ulong.TryParse(message.Params[0], out ulong userId))
             {
-                server.EnqueueMessage($":{server.Hostname} FAIL SETNICK SETNICK_FAIL {message.Params[1]} * :Invalid user ID");
+                server.EnqueueMessage($":{server.Hostname} FAIL SETNICK SETNICK_FAIL {message.Params[0]} * :Invalid user ID");
                 return;
             }
 
