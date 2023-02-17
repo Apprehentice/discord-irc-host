@@ -557,6 +557,16 @@ namespace DiscordIrcBridge
                     server.EnqueueMessage($":{key}!{newGuildUser.Id}@discord.com NICK {newGuildUser.GetIrcSafeName() + discriminator}");
                 }
             }
+
+            if (oldGuildUser.TimedOutUntil == null && newGuildUser.TimedOutUntil != null)
+            {
+                var duration = (newGuildUser.TimedOutUntil - DateTimeOffset.Now).Value.TotalSeconds;
+                server.EnqueueMessage($":{server.Hostname} TIMEOUT {newGuildUser.Id} {duration}");
+            }
+            else if (oldGuildUser.TimedOutUntil != null && newGuildUser.TimedOutUntil == null)
+            {
+                server.EnqueueMessage($":{server.Hostname} UNTIMEOUT {newGuildUser.Id}");
+            }
         }
 
         private async Task Client_RoleUpdated(SocketRole oldRole, SocketRole newRole)
@@ -888,23 +898,29 @@ namespace DiscordIrcBridge
                     if (message.Params.Count < 2)
                         return;
 
-                    var ack = "";
-                    var nak = "";
+                    var mParams = new List<string>();
                     for (var i = 1; i < message.Params.Count; i++)
                     {
-                        if (message.Params[i] == "message-tags"
-                            || message.Params[i] == "multi-prefix")
+                        mParams.AddRange(message.Params[i].Split(' '));
+                    }
+
+                    var ack = "";
+                    var nak = "";
+                    for (var i = 0; i < mParams.Count; i++)
+                    {
+                        if (mParams[i] == "message-tags"
+                            || mParams[i] == "multi-prefix")
                         {
-                            ack += message.Params[i] + " ";
+                            ack += mParams[i] + " ";
                         }
                         else
                         {
-                            nak += message.Params[i] + " ";
+                            nak += mParams[i] + " ";
                         }
 
-                        if (message.Params[i] == "message-tags")
+                        if (mParams[i] == "message-tags")
                             currentCapabilities.message_tags = true;
-                        if (message.Params[i] == "multi-prefix")
+                        if (mParams[i] == "multi-prefix")
                             currentCapabilities.multi_prefix = true;
                     }
 
@@ -1344,8 +1360,10 @@ namespace DiscordIrcBridge
                                             }
                                             else if (config.BanMode == Config.BanModes.Timeout)
                                             {
-                                                logger.Warn("Cannot verify timeout permissions (Not implemented). This is being done blindly!");
                                                 var user = await guild.GetUserAsync(userId);
+
+                                                if (compareRoleHierarchy(self, user) <= 0)
+                                                    return;
 
                                                 if (user != null)
                                                 {
@@ -1397,10 +1415,10 @@ namespace DiscordIrcBridge
                                         }
                                         else
                                         {
-                                            var bans = await guild.GetBansAsync();
-                                            foreach (var ban in bans)
+                                            var bans = guild.GetBansAsync();
+                                            await foreach (var ban in bans)
                                             {
-                                                server.EnqueueMessage($":{server.Hostname} 367 {nick} {message.Params[0]} *!{ban.User.Id}@*");
+                                                server.EnqueueMessage($":{server.Hostname} 367 {nick} {message.Params[0]} *!{ban.FirstOrDefault()?.User.Id}@*");
                                             }
                                         }
                                         server.EnqueueMessage($":{server.Hostname} 368 {nick} {message.Params[0]} :End of channel ban list");
@@ -1514,8 +1532,10 @@ namespace DiscordIrcBridge
                                             }
                                             else if (config.BanMode == Config.BanModes.Timeout)
                                             {
-                                                logger.Warn("Cannot verify timeout permissions (Not implemented). This is being done blindly!");
                                                 var user = await guild.GetUserAsync(userId);
+
+                                                if (compareRoleHierarchy(self, user) <= 0)
+                                                    return;
 
                                                 if (user != null)
                                                 {
@@ -1673,10 +1693,10 @@ namespace DiscordIrcBridge
                                         }
                                         else
                                         {
-                                            var bans = await guild.GetBansAsync();
-                                            foreach (var ban in bans)
+                                            var bans = guild.GetBansAsync();
+                                            await foreach (var ban in bans)
                                             {
-                                                server.EnqueueMessage($":{server.Hostname} 367 {nick} {message.Params[0]} *!{ban.User.Id}@*");
+                                                server.EnqueueMessage($":{server.Hostname} 367 {nick} {message.Params[0]} *!{ban.FirstOrDefault()?.User.Id}@*");
                                             }
                                         }
                                         server.EnqueueMessage($":{server.Hostname} 368 {nick} {message.Params[0]} :End of channel ban list");
@@ -1855,23 +1875,48 @@ namespace DiscordIrcBridge
             }
 
             var guildUser = await guild.GetUserAsync(userId);
+            var currentUser = await guild.GetUserAsync(client.CurrentUser.Id);
             if (guildUser == null)
             {
                 server.EnqueueMessage($":{server.Hostname} FAIL TIMEOUT TIMEOUT_FAIL {userId} * :No such user");
                 return;
             }
 
-            logger.Warn("Cannot verify timeout permissions (Not implemented.) We are doing this blindly!");
-            await guildUser.SetTimeOutAsync(TimeSpan.FromSeconds(duration));
+            if (compareRoleHierarchy(currentUser, guildUser) > 0)
+                await guildUser.SetTimeOutAsync(TimeSpan.FromSeconds(duration));
+        }
 
-            // TODO When we can respond to timeouts, tell the IRC client about it
-            //if (config.BanMode == Config.BanModes.Timeout)
-            //{
-            //    foreach (var channel in joinedChannels)
-            //    {
-            //        server.EnqueueMessage($":{server.Hostname} MODE {channel.Value.IrcName}: +b *!{userId}@*");
-            //    }
-            //}
+        [IrcCommand("UNTIMEOUT", preAuth: false, postAuth: false)]
+        public async void UntimeoutHandler(IrcMessage message)
+        {
+            if (message.Params.Count < 2)
+            {
+                server.EnqueueMessage($":{server.Hostname} FAIL UNTIMEOUT UNTIMEOUT_FAIL * * :Not enough parameters");
+                return;
+            }
+
+            if (!ulong.TryParse(message.Params[0], out ulong userId))
+            {
+                server.EnqueueMessage($":{server.Hostname} FAIL UNTIMEOUT UNTIMEOUT_FAIL {message.Params[0]} * :Invalid user ID");
+                return;
+            }
+
+            if (!ulong.TryParse(message.Params[1], out ulong duration))
+            {
+                server.EnqueueMessage($":{server.Hostname} FAIL UNTIMEOUT UNTIMEOUT_FAIL {message.Params[1]} * :Invalid duration");
+                return;
+            }
+
+            var guildUser = await guild.GetUserAsync(userId);
+            var currentUser = await guild.GetUserAsync(client.CurrentUser.Id);
+            if (guildUser == null)
+            {
+                server.EnqueueMessage($":{server.Hostname} FAIL UNTIMEOUT UNTIMEOUT_FAIL {userId} * :No such user");
+                return;
+            }
+
+            if (compareRoleHierarchy(currentUser, guildUser) > 0)
+                await guildUser.RemoveTimeOutAsync();
         }
 
         [IrcCommand("USERHOST", preAuth: false, postAuth: false)]
@@ -2822,6 +2867,13 @@ namespace DiscordIrcBridge
                 {
                     foreach (var u in ul)
                     {
+                        if (u.Id == client.CurrentUser.Id)
+                            continue; // HACK Skip current user; they will be sent last
+
+                        if (config.NamesWhitelist.Count != 0 && !config.NamesWhitelist.Contains(chan.Id.ToString()))
+                            continue;
+
+                        // Currently not functional; erroneously reports users offline
                         if (!config.ShowOfflineUsers && u.Status == UserStatus.Offline)
                         {
                             continue;
@@ -2896,6 +2948,27 @@ namespace DiscordIrcBridge
 
             if (sentList)
                 server.EnqueueMessage($":{server.Hostname} 366 {nick} {chanPrefix}{chan.GetIrcSafeName()} :End of /NAMES list");
+
+            var user = await guild.GetUserAsync(client.CurrentUser.Id);
+            if (user.GuildPermissions.Administrator)
+            {
+                server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} +a {await getNickById(user.Id)}");
+            }
+
+            if (user.GuildPermissions.ManageChannels)
+            {
+                server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} +o {await getNickById(user.Id)}");
+            }
+
+            if (user.GuildPermissions.KickMembers)
+            {
+                server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} +h {await getNickById(user.Id)}");
+            }
+
+            if (user.GetPermissions(chan).SendMessages)
+            {
+                server.EnqueueMessage($":{server.Hostname} MODE #{chan.GetIrcSafeName()} +v {await getNickById(user.Id)}");
+            }
         }
 
         private async Task<IGuildUser> findUserByIrcName(string name)
@@ -3088,6 +3161,33 @@ namespace DiscordIrcBridge
                 });
             }
             return input;
+        }
+
+        private int compareRoleHierarchy(IGuildUser firstUser, IGuildUser secondUser)
+        {
+            if (firstUser.GuildId != secondUser.GuildId)
+                throw new InvalidOperationException("Cannot compare users from different guilds.");
+
+            var guild = firstUser.Guild;
+            var roles = guild.Roles.ToList();
+
+            IRole firstHighest = guild.GetRole(firstUser.RoleIds.FirstOrDefault());
+            foreach (var r in firstUser.RoleIds)
+            {
+                var role = guild.GetRole(r);
+                if (roles.IndexOf(role) > roles.IndexOf(firstHighest))
+                    firstHighest = role;
+            }
+
+            IRole secondHighest = guild.GetRole(secondUser.RoleIds.FirstOrDefault());
+            foreach (var r in secondUser.RoleIds)
+            {
+                var role = guild.GetRole(r);
+                if (roles.IndexOf(role) > roles.IndexOf(firstHighest))
+                    firstHighest = role;
+            }
+
+            return Math.Sign(roles.IndexOf(firstHighest) - roles.IndexOf(secondHighest));
         }
 
         private class Capabilities

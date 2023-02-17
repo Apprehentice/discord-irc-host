@@ -48,7 +48,8 @@ namespace DiscordIrcBridge
             {
                 LogLevel = Discord.LogSeverity.Debug,
                 MessageCacheSize = 128,
-                AlwaysDownloadUsers = true
+                AlwaysDownloadUsers = true,
+                GatewayIntents = Discord.GatewayIntents.All
             });
             await dClient.LoginAsync(Discord.TokenType.Bot, token);
             await dClient.StartAsync();
